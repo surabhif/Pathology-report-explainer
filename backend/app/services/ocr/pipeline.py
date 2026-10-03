@@ -166,23 +166,50 @@ def latest_ocr_run(db: Session, report_id: int, engine: str | None = None) -> Oc
     return q.order_by(OcrRun.id.desc()).first()
 
 
+def _is_precomputed_run(run: OcrRun | None) -> bool:
+    if run is None:
+        return False
+    meta = run.meta_json or {}
+    # Explicit live flag wins; otherwise treat committed/legacy rows as precomputed.
+    if meta.get("precomputed") is False:
+        return False
+    return bool(meta.get("precomputed", True))
+
+
+def find_precomputed_ocr_run(
+    db: Session,
+    report_id: int,
+    *,
+    engine: str | None = None,
+) -> OcrRun | None:
+    """Newest OCR run that is marked precomputed (never a live admin run)."""
+    q = db.query(OcrRun).filter(OcrRun.report_id == report_id)
+    if engine:
+        q = q.filter(OcrRun.engine == engine)
+    for run in q.order_by(OcrRun.id.desc()).all():
+        if _is_precomputed_run(run):
+            return run
+    return None
+
+
 def ensure_precomputed_ocr_run(
     db: Session,
     report: Report,
     *,
     engine: str = "tesseract",
 ) -> OcrRun | None:
-    """Load committed disk-cache OCR into ``ocr_runs`` (no live Tesseract)."""
-    existing = latest_ocr_run(db, report.id, engine=engine)
-    if existing and (existing.meta_json or {}).get("precomputed"):
-        return existing
-    if existing and existing.cer is not None and existing.wer is not None and existing.text:
-        # Already have a usable run (e.g. from a prior live job) — keep it.
+    """Load committed disk-cache OCR into ``ocr_runs`` (no live Tesseract).
+
+    Public Stage 2 must never surface admin live runs — only ``precomputed=True``
+    rows (or a fresh persist from ``data/ocr_cache/``).
+    """
+    existing = find_precomputed_ocr_run(db, report.id, engine=engine)
+    if existing and existing.text:
         return existing
 
     payload = find_disk_ocr_payload(report.tcga_barcode, engine=engine)
     if not payload:
-        return existing
+        return None
 
     cache_key = (payload.get("meta") or {}).get("cache_key")
     # Stamp precomputed_at from disk file mtime when available.
@@ -212,7 +239,7 @@ def get_precomputed_ocr(
     *,
     engine: str | None = None,
 ) -> OcrRun | None:
-    """Public path: return precomputed OCR only — never runs Tesseract."""
+    """Public path: return precomputed OCR only — never live admin runs or Tesseract."""
     settings = get_settings()
     eng = engine or settings.ocr_engine
     run = ensure_precomputed_ocr_run(db, report, engine=eng)

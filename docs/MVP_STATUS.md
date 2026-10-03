@@ -3,15 +3,18 @@
 ## Done (end-to-end)
 
 - Public demo: BRCA / COAD / LUAD → **three-stage journey** (authentic cached scan → **Our OCR** vs Textract reference + diff → fact sheet + grounded explanation); stage 1 hidden when no real scan
+- **Stages 1–2 load without LLM calls**; stage 3 runs only on **Generate explanation** (or when a cached generation already exists for the text source)
+- Scan images use `apiUrl()` so Vercel frontends load `/api/...` pages from the Render API origin (`VITE_API_BASE_URL`)
 - PathExplain OCR: configurable `OCR_ENGINE` (**tesseract** default, **xai_vision** optional), engine/version tags, timing, cost estimate, disk+DB cache; refuses facsimile pages
-- **Public Stage 2 = precomputed OCR only** (committed under `data/ocr_cache/` for 30 real scans + stored CER/WER). UI labels precomputed (date/engine) vs live. Live/forced Tesseract is **admin-only** behind queue limits; default `OCR_MAX_PAGES=1`
+- **Public Stage 2 = precomputed OCR only** (committed under `data/ocr_cache/` for 30 real scans + stored CER/WER). Live admin runs never replace the public transcript. UI labels precomputed (date/engine) vs live. Default `OCR_MAX_PAGES=1`
 - CER/WER via **rapidfuzz** Levenshtein, computed off the event loop (`asyncio.to_thread`) so `/api/health` stays up on Render free; cached metrics reused from disk/`ocr_runs`
 - OCR benchmark vs TCGA-Reports on **real scans only** (CER/WER + CIs + extraction-impact); facsimiles excluded; Results shows `n_real_scans_scored`
   - Latest Tesseract (`tesseract-5.3.4`) on 30 Tatonetti pages: **CER 0.293** [0.180, 0.405], **WER 0.456** [0.332, 0.579] (`data/ocr_benchmark_latest.json`)
-  - Seed + admin `POST /api/admin/ocr/import-benchmark` load that file into `ocr_benchmark_runs` (idempotent)
-- Exact-quote grounding normalizes lowercase / whitespace / punctuation (e.g. OCR `free of. tumor` ↔ quote `free of tumor`) while preserving original highlight spans — not fuzzy semantic matching
+  - Seed + admin `POST /api/admin/ocr/import-benchmark` load that file into `ocr_benchmark_runs` (idempotent); extraction-impact noted when absent
+- Exact-quote grounding normalizes lowercase / whitespace / punctuation and **splits ellipsis-stitched quotes** (`pT3 ... N0`) so each piece must match — not fuzzy semantic matching
+- Readability pass: if explanation grade is not below the source and ≤ ~8th grade, **one simplify retry**; outcome recorded in generation checks
 - No free-text paste box; admin-only de-identified upload test (no image retention)
-- Invite-token auth with roles admin / annotator / clinician
+- Invite-token auth with roles admin / annotator / clinician; login token is `type=password`; demo-token helper hidden when `APP_ENV=production` (`/api/health.show_demo_tokens`)
 - Admin: users/invites, evaluation sets, batches, progress, auto-check job, OCR benchmark import + live run
 - Annotator labeling (model output hidden)
 - Clinician blinded review (1–5 scores, flags, comments; rubric file-editable)

@@ -1,10 +1,10 @@
 /**
  * Three-stage journey: scanned page → OCR text → PathExplain facts.
  * Stage 2 can switch between Our OCR (PathExplain) and TCGA-Reports (Textract) reference,
- * with an optional word-level diff.
+ * with an optional word-level diff. Stage 3 waits for Generate (or a cached generation).
  */
 import { useEffect, useState } from 'react'
-import { ApiError, api } from '../api/client'
+import { ApiError, api, apiUrl } from '../api/client'
 import { ExplanationPanel } from './ExplanationPanel'
 import { FactSheetPanel } from './FactSheetPanel'
 import { GlossaryPanel } from './GlossaryPanel'
@@ -25,7 +25,7 @@ type OcrView = 'our' | 'reference' | 'diff'
 
 interface Props {
   journey: ReportJourneyOut
-  result: ExplainResponse
+  result: ExplainResponse | null
   glossary?: GlossaryTerm[]
   activeFact: string | null
   activeSentence: number | null
@@ -54,7 +54,9 @@ export function ReportJourney({
   onExplainWithSource,
   explaining = false,
 }: Props) {
-  const [stage, setStage] = useState<Stage>(journey.has_real_scan ? 'scan' : 'ocr')
+  const [stage, setStage] = useState<Stage>(() =>
+    result ? 'explain' : journey.has_real_scan ? 'scan' : 'ocr',
+  )
   const [ocrView, setOcrView] = useState<OcrView>(journey.has_real_scan ? 'our' : 'reference')
   const [ourOcr, setOurOcr] = useState<OurOcrOut | null>(journey.our_ocr ?? null)
   const [ocrLoading, setOcrLoading] = useState(false)
@@ -68,16 +70,20 @@ export function ReportJourney({
 
   useEffect(() => {
     setOurOcr(journey.our_ocr ?? null)
-    setStage(journey.has_real_scan ? 'scan' : 'ocr')
     setOcrView(journey.has_real_scan ? 'our' : 'reference')
-  }, [journey.our_ocr, journey.report_id, journey.has_real_scan])
+    setDiff(null)
+    if (result) {
+      setStage('explain')
+    } else {
+      setStage(journey.has_real_scan ? 'scan' : 'ocr')
+    }
+  }, [journey.our_ocr, journey.report_id, journey.has_real_scan, result?.generation_id])
 
   async function ensureOurOcr() {
     if (ourOcr || ocrLoading) return ourOcr
     setOcrLoading(true)
     setOcrError(null)
     try {
-      // Public path: precomputed OCR only (never live Tesseract).
       const run = await api.runReportOcr(journey.report_id, journey.default_ocr_engine)
       const mapped: OurOcrOut = {
         ocr_run_id: run.id,
@@ -131,6 +137,8 @@ export function ReportJourney({
       : ocrView === 'reference'
         ? journey.report_text
         : ''
+
+  const preferredSource: 'our_ocr' | 'reference' = hasRealScan ? 'our_ocr' : 'reference'
 
   return (
     <div className="journey stack">
@@ -189,7 +197,7 @@ export function ReportJourney({
             {journey.scan_pages.map((p) => (
               <figure key={p.page} className="scan-figure">
                 <img
-                  src={p.url}
+                  src={apiUrl(p.url)}
                   alt={`Pathology report scan page ${p.page} for ${journey.tcga_barcode}`}
                   width={p.width ?? undefined}
                   height={p.height ?? undefined}
@@ -210,7 +218,7 @@ export function ReportJourney({
             </h3>
             <p className="muted">
               {hasRealScan
-                ? `PathExplain runs its own OCR on authentic cached scan pages (default: ${journey.default_ocr_engine}). Compare against the TCGA-Reports / Textract reference (Kefeli et al.).`
+                ? `PathExplain shows precomputed OCR on authentic cached scan pages (default: ${journey.default_ocr_engine}). Compare against the TCGA-Reports / Textract reference (Kefeli et al.).`
                 : 'No authentic scan is cached for this sample, so PathExplain OCR is unavailable here. The TCGA-Reports / Textract reference text is shown for reading only.'}{' '}
               Public demo never accepts arbitrary uploads (PHI).
             </p>
@@ -250,8 +258,8 @@ export function ReportJourney({
               <p className="muted">
                 {ourOcr.source === 'live'
                   ? 'Live OCR (admin-triggered)'
-                  : 'Precomputed OCR (offline)'}:{' '}
-                {ourOcr.engine} / {ourOcr.engine_version}
+                  : 'Precomputed OCR (offline)'}
+                : {ourOcr.engine} / {ourOcr.engine_version}
                 {ourOcr.precomputed_at ? ` · generated ${ourOcr.precomputed_at}` : ''}
                 {ourOcr.duration_ms != null ? ` · ${Math.round(ourOcr.duration_ms)} ms` : ''}
                 {ourOcr.estimated_cost_usd != null
@@ -313,13 +321,12 @@ export function ReportJourney({
               </div>
               <div className="panel stack">
                 <h3 className="section-title" style={{ fontSize: '1.05rem' }}>
-                  Preview: facts (from stage 3)
+                  Next: Stage 3 explanation
                 </h3>
                 <p className="muted">
-                  Click a fact to highlight its quote in the OCR text currently shown. Prefer
-                  explaining from Our OCR so quotes ground in PathExplain’s transcript.
+                  Stages 1–2 never call the language model. Click Generate to extract facts and write
+                  a grounded explanation from the transcript you prefer.
                 </p>
-                <FactSheetPanel facts={result.facts} activeKey={activeFact} onSelect={onFactSelect} />
                 {onExplainWithSource && (
                   <div className="pill-group" style={{ marginTop: '0.75rem' }}>
                     {hasRealScan && (
@@ -329,7 +336,7 @@ export function ReportJourney({
                         disabled={explaining}
                         onClick={() => onExplainWithSource('our_ocr')}
                       >
-                        Explain from Our OCR
+                        {explaining ? 'Generating…' : 'Generate explanation (Our OCR)'}
                       </button>
                     )}
                     <button
@@ -338,7 +345,11 @@ export function ReportJourney({
                       disabled={explaining}
                       onClick={() => onExplainWithSource('reference')}
                     >
-                      Explain from reference
+                      {explaining
+                        ? 'Generating…'
+                        : hasRealScan
+                          ? 'Generate from reference'
+                          : 'Generate explanation'}
                     </button>
                   </div>
                 )}
@@ -354,65 +365,103 @@ export function ReportJourney({
             <h3 className="section-title" style={{ fontSize: '1.1rem' }}>
               Stage 3 — Structured facts & plain-language explanation
             </h3>
-            <p className="muted">
-              PathExplain extracts a fact sheet with source quotes, then writes a grounded
-              explanation. Text source:{' '}
-              <strong>{result.text_source === 'our_ocr' ? 'Our OCR' : 'TCGA-Reports reference'}</strong>
-              . Click a fact or sentence to highlight its quote.
-            </p>
-            {result.provider && (
+            {!result ? (
+              <>
+                <p className="muted">
+                  No explanation loaded yet. Generating uses the language model (or returns a cached
+                  generation when one exists for this report and text source).
+                </p>
+                {onExplainWithSource && (
+                  <div className="pill-group" style={{ marginTop: '0.75rem' }}>
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      disabled={explaining}
+                      onClick={() => onExplainWithSource(preferredSource)}
+                    >
+                      {explaining ? 'Generating…' : 'Generate explanation'}
+                    </button>
+                    {hasRealScan && preferredSource === 'our_ocr' && (
+                      <button
+                        type="button"
+                        className="btn btn-ghost"
+                        disabled={explaining}
+                        onClick={() => onExplainWithSource('reference')}
+                      >
+                        Generate from reference
+                      </button>
+                    )}
+                  </div>
+                )}
+              </>
+            ) : (
+              <p className="muted">
+                PathExplain extracts a fact sheet with source quotes, then writes a grounded
+                explanation. Text source:{' '}
+                <strong>
+                  {result.text_source === 'our_ocr' ? 'Our OCR' : 'TCGA-Reports reference'}
+                </strong>
+                . Click a fact or sentence to highlight its quote.
+              </p>
+            )}
+            {result?.provider && (
               <p className="muted">
                 Provider: {result.provider} / {result.model}
                 {result.explanation_retried ? ' · explanation retried for grounding' : ''}
+                {result.readability_retried ? ' · readability simplify retry' : ''}
               </p>
             )}
           </div>
-          <div className="explain-layout">
-            <div className="panel">
-              <h3 className="section-title" style={{ fontSize: '1.05rem' }}>
-                OCR text (quote highlighting)
-              </h3>
-              <HighlightedReport
-                text={result.report_text}
-                highlightQuote={highlight.quote}
-                startChar={highlight.start}
-                endChar={highlight.end}
-              />
-            </div>
-            <div className="stack">
-              <div className="panel">
-                <h3 className="section-title" style={{ fontSize: '1.05rem' }}>
-                  Structured facts
-                </h3>
-                <FactSheetPanel
-                  facts={result.facts}
-                  activeKey={activeFact}
-                  onSelect={onFactSelect}
-                />
+          {result && (
+            <>
+              <div className="explain-layout">
+                <div className="panel">
+                  <h3 className="section-title" style={{ fontSize: '1.05rem' }}>
+                    OCR text (quote highlighting)
+                  </h3>
+                  <HighlightedReport
+                    text={result.report_text}
+                    highlightQuote={highlight.quote}
+                    startChar={highlight.start}
+                    endChar={highlight.end}
+                  />
+                </div>
+                <div className="stack">
+                  <div className="panel">
+                    <h3 className="section-title" style={{ fontSize: '1.05rem' }}>
+                      Structured facts
+                    </h3>
+                    <FactSheetPanel
+                      facts={result.facts}
+                      activeKey={activeFact}
+                      onSelect={onFactSelect}
+                    />
+                  </div>
+                  <div className="panel">
+                    <h3 className="section-title" style={{ fontSize: '1.05rem' }}>
+                      Plain-language explanation
+                    </h3>
+                    <ExplanationPanel
+                      explanation={result.explanation}
+                      reportText={result.report_text}
+                      activeIndex={activeSentence}
+                      onSelect={onSentenceSelect}
+                    />
+                    <ReadingLevel
+                      original={result.reading_level_original}
+                      explanation={result.reading_level_explanation}
+                    />
+                  </div>
+                </div>
               </div>
               <div className="panel">
                 <h3 className="section-title" style={{ fontSize: '1.05rem' }}>
-                  Plain-language explanation
+                  Glossary
                 </h3>
-                <ExplanationPanel
-                  explanation={result.explanation}
-                  reportText={result.report_text}
-                  activeIndex={activeSentence}
-                  onSelect={onSentenceSelect}
-                />
-                <ReadingLevel
-                  original={result.reading_level_original}
-                  explanation={result.reading_level_explanation}
-                />
+                <GlossaryPanel terms={glossary} />
               </div>
-            </div>
-          </div>
-          <div className="panel">
-            <h3 className="section-title" style={{ fontSize: '1.05rem' }}>
-              Glossary
-            </h3>
-            <GlossaryPanel terms={glossary} />
-          </div>
+            </>
+          )}
         </div>
       )}
     </div>

@@ -12,7 +12,7 @@ from pydantic import ValidationError
 
 from app.config import get_settings
 from app.schemas import ExplanationPayload, FactSheet
-from app.services.checks import unsupported_sentences
+from app.services.checks import reading_level_check, unsupported_sentences
 from app.services.grounding import annotate_explanation_grounding
 from app.services.llm.base import LLMProvider
 from app.services.llm.errors import LLMServiceError
@@ -26,9 +26,21 @@ Some sentences had an empty quote or a quote that was NOT found word-for-word in
 Rewrite the full explanation JSON. Every sentence MUST have:
 - non-empty "quote" copied exactly (contiguous substring) from the REPORT below
 - non-empty "source_fact_keys"
+Do NOT stitch distant fragments with ellipses ("..." / "…"); use separate sentences instead.
 If you cannot ground a claim with a real report quote, omit that sentence.
 Do not invent procedure narrative that is not supported by a quote.
 """.strip()
+
+READABILITY_RETRY_SUFFIX = """
+RETRY REQUIRED — reading level is too hard.
+The previous draft was not simpler than the source report and/or exceeded the
+6th–8th grade target. Rewrite EVERY sentence in simpler, shorter words.
+Keep the same facts. Every quote MUST remain a contiguous word-for-word
+substring from the REPORT (no ellipsis stitching). Prefer short sentences.
+Do not raise the grade level above the source report.
+""".strip()
+
+TARGET_MAX_GRADE = 8.5
 
 
 @dataclass
@@ -39,6 +51,8 @@ class ExplanationResult:
     fallback_reason: str | None = None
     retried: bool = False
     grounding_check: dict[str, Any] = field(default_factory=dict)
+    reading_level_check: dict[str, Any] = field(default_factory=dict)
+    readability_retried: bool = False
 
 
 def load_prompt(name: str = "explain_v1.txt") -> str:
@@ -50,6 +64,11 @@ def validate_explanation(data: dict[str, Any]) -> ExplanationPayload:
     return ExplanationPayload.model_validate(data)
 
 
+def _reading_level_ok(check: dict[str, Any]) -> bool:
+    """Pass when explanation is below the source grade and within the target band."""
+    return bool(check.get("simpler_than_original")) and bool(check.get("meets_target"))
+
+
 def _finalize(
     explanation: ExplanationPayload,
     report_text: str,
@@ -58,10 +77,18 @@ def _finalize(
     used_fallback: bool = False,
     fallback_reason: str | None = None,
     retried: bool = False,
+    readability_retried: bool = False,
 ) -> ExplanationResult:
     annotated = annotate_explanation_grounding(explanation.model_dump(), report_text)
     payload = validate_explanation(annotated)
     check = unsupported_sentences(annotated, report_text)
+    rl = reading_level_check(report_text, annotated, target_max_grade=TARGET_MAX_GRADE)
+    # Fold readability into the stored checks snapshot for Results / UI.
+    check = {
+        **check,
+        "reading_level": rl,
+        "readability_retried": readability_retried,
+    }
     return ExplanationResult(
         explanation=payload,
         prompt_tag=prompt_tag,
@@ -69,6 +96,8 @@ def _finalize(
         fallback_reason=fallback_reason,
         retried=retried,
         grounding_check=check,
+        reading_level_check=rl,
+        readability_retried=readability_retried,
     )
 
 
@@ -86,8 +115,9 @@ async def generate_explanation(
     whole generation honestly labeled as mock rather than mixing providers.
 
     When a hosted model returns unsupported sentences (empty quote or quote not
-    found word-for-word in the report), we attempt **one** stricter retry and
-    record ``retried=True`` on the result.
+    found word-for-word in the report), we attempt **one** stricter retry.
+    After grounding, if the Flesch-Kincaid grade is not below the source *and*
+    within the 6th–8th grade target, we attempt **one** readability retry.
     """
     system = load_prompt(prompt_name)
     facts_json = facts.model_dump_json(indent=2)
@@ -137,42 +167,98 @@ async def generate_explanation(
             retried=False,
         )
 
-    first_result = _finalize(first, report_text, prompt_tag=prompt_tag, retried=False)
-    if first_result.grounding_check.get("pass"):
-        return first_result
+    result = _finalize(first, report_text, prompt_tag=prompt_tag, retried=False)
+    if not result.grounding_check.get("pass"):
+        # One automatic retry with a stricter grounding instruction.
+        logger.info(
+            "explanation.retry unsupported_count=%s",
+            result.grounding_check.get("unsupported_count"),
+        )
+        flagged = result.grounding_check.get("flagged") or []
+        problem_lines = "\n".join(
+            f"- [{f.get('index')}] {f.get('sentence')!r} reasons={f.get('reasons')}"
+            for f in flagged
+        )
+        retry_user = (
+            f"{user}\n\n{STRICT_RETRY_SUFFIX}\n\n"
+            f"Previous unsupported sentences:\n{problem_lines or '(none listed)'}"
+        )
+        try:
+            raw2 = await provider.complete_json(system=system, user=retry_user, temperature=0.0)
+            second = validate_explanation(raw2)
+            second_result = _finalize(second, report_text, prompt_tag=prompt_tag, retried=True)
+        except LLMServiceError:
+            logger.warning("explanation.retry_failed keeping_first_draft")
+            result.retried = True
+            second_result = None
+        except (ValidationError, json.JSONDecodeError, KeyError, TypeError) as exc:
+            logger.warning(
+                "explanation.retry_invalid reason=%s keeping_first_draft", type(exc).__name__
+            )
+            result.retried = True
+            second_result = None
 
-    # One automatic retry with a stricter grounding instruction.
-    logger.info(
-        "explanation.retry unsupported_count=%s",
-        first_result.grounding_check.get("unsupported_count"),
-    )
-    flagged = first_result.grounding_check.get("flagged") or []
-    problem_lines = "\n".join(
-        f"- [{f.get('index')}] {f.get('sentence')!r} reasons={f.get('reasons')}" for f in flagged
-    )
-    retry_user = (
-        f"{user}\n\n{STRICT_RETRY_SUFFIX}\n\n"
-        f"Previous unsupported sentences:\n{problem_lines or '(none listed)'}"
-    )
-    try:
-        raw2 = await provider.complete_json(system=system, user=retry_user, temperature=0.0)
-        second = validate_explanation(raw2)
-        second_result = _finalize(second, report_text, prompt_tag=prompt_tag, retried=True)
-    except LLMServiceError:
-        # Keep the first draft rather than failing the whole explain after a timeout on retry.
-        logger.warning("explanation.retry_failed keeping_first_draft")
-        first_result.retried = True  # we attempted
-        return first_result
-    except (ValidationError, json.JSONDecodeError, KeyError, TypeError) as exc:
-        logger.warning("explanation.retry_invalid reason=%s keeping_first_draft", type(exc).__name__)
-        first_result.retried = True
-        return first_result
+        if second_result is not None:
+            first_rate = float(result.grounding_check.get("support_rate") or 0.0)
+            second_rate = float(second_result.grounding_check.get("support_rate") or 0.0)
+            if second_rate >= first_rate:
+                result = second_result
+            else:
+                result.retried = True
 
-    # Prefer the retry when it is at least as well grounded.
-    first_rate = float(first_result.grounding_check.get("support_rate") or 0.0)
-    second_rate = float(second_result.grounding_check.get("support_rate") or 0.0)
-    if second_rate >= first_rate:
-        return second_result
-    # Keep the better first draft, but record that a retry was attempted.
-    first_result.retried = True
-    return first_result
+    # Readability pass: explanation must be simpler than source and ≤ target.
+    if not _reading_level_ok(result.reading_level_check):
+        logger.info(
+            "explanation.readability_retry orig=%s expl=%s",
+            result.reading_level_check.get("original_grade"),
+            result.reading_level_check.get("explanation_grade"),
+        )
+        rl = result.reading_level_check
+        retry_user = (
+            f"{user}\n\n{READABILITY_RETRY_SUFFIX}\n\n"
+            f"Previous grades: original={rl.get('original_grade')}, "
+            f"explanation={rl.get('explanation_grade')} "
+            f"(target ≤ {TARGET_MAX_GRADE}; must be simpler than the source)."
+        )
+        try:
+            raw3 = await provider.complete_json(system=system, user=retry_user, temperature=0.0)
+            simpler = validate_explanation(raw3)
+            simple_result = _finalize(
+                simpler,
+                report_text,
+                prompt_tag=prompt_tag,
+                retried=result.retried,
+                readability_retried=True,
+            )
+            # Prefer the readability retry when grounding is at least as good
+            # and reading level improved (or already ok).
+            if (
+                float(simple_result.grounding_check.get("support_rate") or 0.0)
+                >= float(result.grounding_check.get("support_rate") or 0.0)
+            ):
+                return simple_result
+            result.readability_retried = True
+            result.grounding_check = {
+                **result.grounding_check,
+                "readability_retried": True,
+                "reading_level": result.reading_level_check,
+                "readability_retry_kept_prior": True,
+            }
+        except LLMServiceError:
+            logger.warning("explanation.readability_retry_failed")
+            result.readability_retried = True
+            result.grounding_check = {
+                **result.grounding_check,
+                "readability_retried": True,
+            }
+        except (ValidationError, json.JSONDecodeError, KeyError, TypeError) as exc:
+            logger.warning(
+                "explanation.readability_retry_invalid reason=%s", type(exc).__name__
+            )
+            result.readability_retried = True
+            result.grounding_check = {
+                **result.grounding_check,
+                "readability_retried": True,
+            }
+
+    return result

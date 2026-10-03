@@ -87,7 +87,15 @@ def create_app() -> FastAPI:
 
     @app.get("/api/health")
     def health() -> dict:
-        return {"ok": True, "provider": settings.llm_provider}
+        settings = get_settings()
+        env = (settings.app_env or "development").strip().lower()
+        return {
+            "ok": True,
+            "provider": settings.llm_provider,
+            "app_env": env,
+            # Local demo token helper on the login page — never in production.
+            "show_demo_tokens": env not in {"production", "prod"},
+        }
 
     @app.get("/api/about")
     def about() -> dict:

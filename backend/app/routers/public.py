@@ -136,6 +136,12 @@ async def run_explain_pipeline(
     rl_expl = flesch_kincaid_grade(
         explanation_text_from_payload(explain_res.explanation.model_dump())
     )
+    # Prefer grades from the readability check snapshot when present.
+    rl_check = explain_res.reading_level_check or {}
+    if rl_check.get("original_grade") is not None:
+        rl_orig = float(rl_check["original_grade"])
+    if rl_check.get("explanation_grade") is not None:
+        rl_expl = float(rl_check["explanation_grade"])
 
     gen = Generation(
         report_id=report.id,
@@ -245,6 +251,27 @@ def _ocr_run_out(run: OcrRun) -> OcrRunOut:
     )
 
 
+def _cached_text_sources(db: Session, report_id: int) -> list[str]:
+    """Return text_source values with a cacheable Generation for the active provider."""
+    provider = get_llm_provider()
+    extract_tag = _active_prompt_tag(db, "extract")
+    explain_tag = _active_prompt_tag(db, "explain")
+    rows = (
+        db.query(Generation.text_source)
+        .filter(
+            Generation.report_id == report_id,
+            Generation.provider == provider.provider_id(),
+            Generation.model == provider.model_id(),
+            Generation.prompt_extract_version == extract_tag,
+            Generation.prompt_explain_version == explain_tag,
+            Generation.is_fallback.is_(False),
+        )
+        .distinct()
+        .all()
+    )
+    return sorted({(r[0] or "reference") for r in rows})
+
+
 def _journey_for_report(report: Report, db: Session | None = None) -> ReportJourneyOut:
     settings = get_settings()
     manifest = report.scan_manifest or load_manifest(report.tcga_barcode) or {}
@@ -265,6 +292,7 @@ def _journey_for_report(report: Report, db: Session | None = None) -> ReportJour
                 )
             )
     our: OurOcrOut | None = None
+    cached_sources: list[str] = []
     if db is not None:
         # Prefer committed precomputed OCR — never kick off live Tesseract here.
         from app.services.ocr.pipeline import get_precomputed_ocr
@@ -272,6 +300,7 @@ def _journey_for_report(report: Report, db: Session | None = None) -> ReportJour
         run = get_precomputed_ocr(db, report, engine=settings.ocr_engine)
         if run:
             our = _our_ocr_out(run)
+        cached_sources = _cached_text_sources(db, report.id)
     return ReportJourneyOut(
         report_id=report.id,
         tcga_barcode=report.tcga_barcode,
@@ -285,6 +314,7 @@ def _journey_for_report(report: Report, db: Session | None = None) -> ReportJour
         default_ocr_engine=settings.ocr_engine,
         has_real_scan=real,
         scan_scorable=real,
+        cached_text_sources=cached_sources,
         explain_path=f"/api/public/reports/{report.id}/explain",
     )
 
@@ -484,6 +514,7 @@ async def explain_report(
         requested_model=gen.requested_model,
         explanation_retried=bool(gen.explanation_retried),
         grounding_check=gen.grounding_check_json,
+        readability_retried=bool((gen.grounding_check_json or {}).get("readability_retried")),
         glossary=_glossary_for_text(used_text, expl_text),
         journey=_journey_for_report(report, db),
         text_source=gen.text_source or "reference",

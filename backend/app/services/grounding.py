@@ -3,8 +3,11 @@
 A sentence is grounded only when it has a non-empty quote whose *normalized*
 form appears in the source report. Normalization: lowercase, collapse
 whitespace, strip punctuation. Matching is still exact on the normalized
-token stream (not fuzzy/semantic). Original character offsets are recovered
-so UI highlight can land on the real report span (e.g. ``free of. tumor``).
+token stream (not fuzzy/semantic).
+
+Ellipsis-stitched quotes (``pT3 ... N0``) are split into pieces; every piece
+must match. Original character offsets are recovered so UI highlight can land
+on the real report span (e.g. ``free of. tumor``).
 """
 
 from __future__ import annotations
@@ -14,6 +17,7 @@ import string
 from typing import Any
 
 _WS = re.compile(r"\s+")
+_ELLIPSIS = re.compile(r"(?:\.{3}|…)")
 _PUNCT_TABLE = str.maketrans({c: " " for c in string.punctuation})
 
 
@@ -29,6 +33,15 @@ def normalize_for_grounding(text: str) -> str:
         return ""
     lowered = text.lower().translate(_PUNCT_TABLE)
     return _WS.sub(" ", lowered).strip()
+
+
+def split_ellipsis_quote(quote: str) -> list[str]:
+    """Split a quote on ``...`` / ``…`` into non-empty pieces."""
+    q = normalize_quote(quote)
+    if not q:
+        return []
+    parts = [p.strip() for p in _ELLIPSIS.split(q) if p.strip()]
+    return parts or [q]
 
 
 def _normalized_with_index_map(text: str) -> tuple[str, list[int]]:
@@ -66,11 +79,8 @@ def _normalized_with_index_map(text: str) -> tuple[str, list[int]]:
     return "".join(norm_chars), index_map
 
 
-def find_quote_span(quote: str, report_text: str) -> tuple[int, int] | None:
-    """Locate ``quote`` in ``report_text`` after grounding normalization.
-
-    Returns ``(start, end)`` offsets into the *original* report text, or None.
-    """
+def _find_single_span(quote: str, report_text: str) -> tuple[int, int] | None:
+    """Locate one contiguous quote piece in ``report_text``."""
     q = normalize_quote(quote)
     if not q or not report_text:
         return None
@@ -95,8 +105,27 @@ def find_quote_span(quote: str, report_text: str) -> tuple[int, int] | None:
     return start, last_orig + 1
 
 
+def find_quote_span(quote: str, report_text: str) -> tuple[int, int] | None:
+    """Locate ``quote`` in ``report_text`` after grounding normalization.
+
+    Ellipsis-stitched quotes are accepted when every piece matches. Highlight
+    span uses the first matching piece so the UI lands on real report text.
+    Returns ``(start, end)`` offsets into the *original* report text, or None.
+    """
+    parts = split_ellipsis_quote(quote)
+    if not parts:
+        return None
+    spans: list[tuple[int, int]] = []
+    for part in parts:
+        span = _find_single_span(part, report_text)
+        if span is None:
+            return None
+        spans.append(span)
+    return spans[0]
+
+
 def quote_found_in_report(quote: str, report_text: str) -> bool:
-    """True when normalized ``quote`` is found in the report (exact on normalized form)."""
+    """True when normalized ``quote`` (or every ellipsis piece) is found."""
     return find_quote_span(quote, report_text) is not None
 
 

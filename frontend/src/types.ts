@@ -102,6 +102,7 @@ export interface ReportJourneyOut {
   available_ocr_engines?: string[]
   has_real_scan?: boolean
   scan_scorable?: boolean
+  cached_text_sources?: string[]
   explain_path: string
 }
 
@@ -152,11 +153,14 @@ export interface ExplainResponse {
   requested_provider?: string | null
   requested_model?: string | null
   explanation_retried?: boolean
+  readability_retried?: boolean
   grounding_check?: {
     unsupported_count?: number
     support_rate?: number
     pass?: boolean
     flagged?: Array<{ index: number; reasons: string[]; sentence?: string }>
+    reading_level?: Record<string, unknown>
+    readability_retried?: boolean
   } | null
   journey?: ReportJourneyOut | null
   text_source?: string

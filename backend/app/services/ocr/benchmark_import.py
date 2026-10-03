@@ -86,6 +86,18 @@ def import_ocr_benchmark_from_json(
             "CER/WER are computed only on authentic page images (Tatonetti Textract "
             "inputs or GDC PDF renders). OCR-text facsimiles are excluded."
         )
+    # Committed offline benchmark does not re-run extraction vs gold — be explicit.
+    impact = summary.get("extraction_impact")
+    if not impact or (isinstance(impact, dict) and not any(
+        k.startswith("field_accuracy") for k in impact
+    )):
+        summary["extraction_impact"] = {
+            "note": (
+                "Extraction-impact (field accuracy from Our OCR vs Textract reference "
+                "vs gold labels) was not computed in this offline import. Run a live "
+                "OCR benchmark after gold labels exist to populate it."
+            ),
+        }
 
     engine = payload.get("engine") or summary.get("engine") or "tesseract"
     engine_version = (

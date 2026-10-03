@@ -13,10 +13,17 @@ interface Props {
 }
 
 function findNormalizedSpan(text: string, quote: string): { start: number; end: number } | null {
-  const exact = text.indexOf(quote)
-  if (exact >= 0) return { start: exact, end: exact + quote.length }
-  const lowerIdx = text.toLowerCase().indexOf(quote.toLowerCase())
-  if (lowerIdx >= 0) return { start: lowerIdx, end: lowerIdx + quote.length }
+  // Ellipsis-stitched quotes: highlight the first matching piece.
+  const pieces = quote
+    .split(/\.{3}|…/)
+    .map((p) => p.trim())
+    .filter(Boolean)
+  const target = pieces[0] ?? quote
+
+  const exact = text.indexOf(target)
+  if (exact >= 0) return { start: exact, end: exact + target.length }
+  const lowerIdx = text.toLowerCase().indexOf(target.toLowerCase())
+  if (lowerIdx >= 0) return { start: lowerIdx, end: lowerIdx + target.length }
 
   const isPunct = (ch: string) => /[!"#$%&'()*+,\-./:;<=>?@[\\\]^_`{|}~]/.test(ch)
   const normChars: string[] = []
@@ -50,7 +57,7 @@ function findNormalizedSpan(text: string, quote: string): { start: number; end: 
     indexMap.pop()
   }
   const normReport = normChars.join('')
-  const normQuote = quote
+  const normQuote = target
     .toLowerCase()
     .replace(/[!"#$%&'()*+,\-./:;<=>?@[\\\]^_`{|}~]/g, ' ')
     .replace(/\s+/g, ' ')

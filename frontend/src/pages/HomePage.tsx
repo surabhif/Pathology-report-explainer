@@ -1,31 +1,31 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ApiError, api } from '../api/client'
-import { ExplanationPanel } from '../components/ExplanationPanel'
-import { FactSheetPanel } from '../components/FactSheetPanel'
-import { GlossaryPanel } from '../components/GlossaryPanel'
-import { HighlightedReport } from '../components/HighlightedReport'
-import { ReadingLevel } from '../components/ReadingLevel'
 import { ReportJourney } from '../components/ReportJourney'
 import type {
   CancerType,
   ExplainResponse,
   FactSheet,
   FactSpan,
+  ReportJourneyOut,
   ReportSummary,
 } from '../types'
 import { CANCER_OPTIONS } from '../types'
 
 /**
  * Public demo home: pick cancer type → pick report → three-stage journey
- * (scan → OCR text → PathExplain facts). No free-text paste for real/PHI reports.
+ * (scan → OCR text → PathExplain facts). Stages 1–2 load immediately;
+ * stage 3 (extract + explain) runs only on demand or when a cached generation exists.
+ * No free-text paste for real/PHI reports.
  */
 export function HomePage() {
   const [cancer, setCancer] = useState<CancerType | null>(null)
   const [reports, setReports] = useState<ReportSummary[]>([])
   const [selectedId, setSelectedId] = useState<number | null>(null)
+  const [journey, setJourney] = useState<ReportJourneyOut | null>(null)
   const [result, setResult] = useState<ExplainResponse | null>(null)
-  const [loading, setLoading] = useState(false)
+  const [loadingJourney, setLoadingJourney] = useState(false)
+  const [explaining, setExplaining] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const [activeFact, setActiveFact] = useState<string | null>(null)
@@ -60,10 +60,8 @@ export function HomePage() {
     reportId: number,
     opts?: { text_source?: 'reference' | 'our_ocr' },
   ) {
-    setSelectedId(reportId)
-    setLoading(true)
+    setExplaining(true)
     setError(null)
-    setResult(null)
     setActiveFact(null)
     setActiveSentence(null)
     setHighlight({ quote: null, start: null, end: null })
@@ -72,10 +70,38 @@ export function HomePage() {
         text_source: opts?.text_source ?? 'our_ocr',
       })
       setResult(expl)
+      if (expl.journey) setJourney(expl.journey)
     } catch (e: unknown) {
       setError(e instanceof ApiError ? e.detail : 'Explain failed')
     } finally {
-      setLoading(false)
+      setExplaining(false)
+    }
+  }
+
+  async function selectReport(reportId: number) {
+    setSelectedId(reportId)
+    setResult(null)
+    setJourney(null)
+    setLoadingJourney(true)
+    setError(null)
+    setActiveFact(null)
+    setActiveSentence(null)
+    setHighlight({ quote: null, start: null, end: null })
+    try {
+      // Stages 1–2 only — never call explain/xAI just by opening a case.
+      const j = await api.getReportJourney(reportId)
+      setJourney(j)
+      const preferred: 'our_ocr' | 'reference' = j.has_real_scan ? 'our_ocr' : 'reference'
+      const cached = j.cached_text_sources ?? []
+      if (cached.includes(preferred) || cached.includes('reference')) {
+        const source = cached.includes(preferred) ? preferred : 'reference'
+        // Cache hit: loads stored Generation without a new LLM call.
+        await runExplain(reportId, { text_source: source })
+      }
+    } catch (e: unknown) {
+      setError(e instanceof ApiError ? e.detail : 'Failed to load report journey')
+    } finally {
+      setLoadingJourney(false)
     }
   }
 
@@ -121,10 +147,9 @@ export function HomePage() {
       <section id="demo">
         <h2 className="section-title">Public demo</h2>
         <p className="muted">
-          Choose a cancer type and a seeded sample report. The journey shows (1) the scanned page,
-          (2) PathExplain OCR vs TCGA-Reports/Textract reference text, and (3) structured facts and
-          explanation grounded in the chosen transcript. There is no paste box — real patient text
-          must not be entered here.
+          Choose a cancer type and a seeded sample report. Stages 1–2 (scan + OCR) load immediately.
+          Stage 3 (extract + explain) runs only when you click Generate — opening a case spends no
+          model calls. There is no paste box — real patient text must not be entered here.
         </p>
 
         <div className="demo-controls">
@@ -142,6 +167,7 @@ export function HomePage() {
                     setCancer(opt.code)
                     setSelectedId(null)
                     setResult(null)
+                    setJourney(null)
                   }}
                 >
                   {opt.label}
@@ -161,7 +187,7 @@ export function HomePage() {
                     key={r.id}
                     type="button"
                     className={`pill ${selectedId === r.id ? 'active' : ''}`}
-                    onClick={() => void runExplain(r.id)}
+                    onClick={() => void selectReport(r.id)}
                   >
                     {r.tcga_barcode}
                   </button>
@@ -172,101 +198,64 @@ export function HomePage() {
           )}
         </div>
 
-        {loading && <p className="muted">Running extract + explain pipeline…</p>}
+        {loadingJourney && <p className="muted">Loading scan and OCR…</p>}
+        {explaining && <p className="muted">Generating explanation…</p>}
         {error && <p className="error-text">{error}</p>}
 
-        {result && (
+        {journey && (
           <div className="stack">
-            <div className="panel" style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-              <div>
-                <div className="fact-key">Provider</div>
+            {result && (
+              <div className="panel" style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
                 <div>
-                  {result.provider ?? '—'} / {result.model ?? '—'}
-                </div>
-              </div>
-              {result.is_fallback && (
-                <div className="error-text" role="status">
-                  Heuristic fallback — not attributed to{' '}
-                  {result.requested_provider ?? 'the hosted model'}
-                  {result.requested_model ? ` (${result.requested_model})` : ''}. Reason:{' '}
-                  {result.fallback_reason ?? 'validation failure'}. Do not treat this as a model
-                  evaluation sample.
-                </div>
-              )}
-              {result.explanation_retried && (
-                <div className="muted" role="status">
-                  Explainer retried once after unsupported sentences (empty or non-verbatim quotes).
-                </div>
-              )}
-              {(result.grounding_check?.unsupported_count ?? 0) > 0 && (
-                <div className="error-text" role="status">
-                  {result.grounding_check?.unsupported_count} sentence
-                  {(result.grounding_check?.unsupported_count ?? 0) === 1 ? '' : 's'} still lack a
-                  source quote found word-for-word in the report (marked below).
-                </div>
-              )}
-            </div>
-
-            {result.journey ? (
-              <ReportJourney
-                journey={result.journey}
-                result={result}
-                glossary={result.glossary ?? []}
-                activeFact={activeFact}
-                activeSentence={activeSentence}
-                highlight={highlight}
-                onFactSelect={onFactSelect}
-                onSentenceSelect={onSentenceSelect}
-                explaining={loading}
-                onExplainWithSource={(source) => {
-                  if (selectedId != null) void runExplain(selectedId, { text_source: source })
-                }}
-              />
-            ) : (
-              <div className="stack">
-                <div className="explain-layout">
-                  <div className="panel">
-                    <h3 className="section-title">Report</h3>
-                    <p className="muted">
-                      Click a fact or explanation sentence to highlight its grounding quote.
-                    </p>
-                    <HighlightedReport
-                      text={result.report_text}
-                      highlightQuote={highlight.quote}
-                      startChar={highlight.start}
-                      endChar={highlight.end}
-                    />
-                  </div>
-                  <div className="stack">
-                    <div className="panel">
-                      <h3 className="section-title">Structured facts</h3>
-                      <FactSheetPanel
-                        facts={result.facts}
-                        activeKey={activeFact}
-                        onSelect={onFactSelect}
-                      />
-                    </div>
-                    <div className="panel">
-                      <h3 className="section-title">Plain-language explanation</h3>
-                      <ExplanationPanel
-                        explanation={result.explanation}
-                        reportText={result.report_text}
-                        activeIndex={activeSentence}
-                        onSelect={onSentenceSelect}
-                      />
-                      <ReadingLevel
-                        original={result.reading_level_original}
-                        explanation={result.reading_level_explanation}
-                      />
-                    </div>
+                  <div className="fact-key">Provider</div>
+                  <div>
+                    {result.provider ?? '—'} / {result.model ?? '—'}
                   </div>
                 </div>
-                <div className="panel">
-                  <h3 className="section-title">Glossary</h3>
-                  <GlossaryPanel terms={result.glossary ?? []} />
-                </div>
+                {result.is_fallback && (
+                  <div className="error-text" role="status">
+                    Heuristic fallback — not attributed to{' '}
+                    {result.requested_provider ?? 'the hosted model'}
+                    {result.requested_model ? ` (${result.requested_model})` : ''}. Reason:{' '}
+                    {result.fallback_reason ?? 'validation failure'}. Do not treat this as a model
+                    evaluation sample.
+                  </div>
+                )}
+                {result.explanation_retried && (
+                  <div className="muted" role="status">
+                    Explainer retried once after unsupported sentences (empty or non-verbatim quotes).
+                  </div>
+                )}
+                {result.readability_retried && (
+                  <div className="muted" role="status">
+                    Explainer retried once to simplify reading level (target: below source, ≤ 8th
+                    grade).
+                  </div>
+                )}
+                {(result.grounding_check?.unsupported_count ?? 0) > 0 && (
+                  <div className="error-text" role="status">
+                    {result.grounding_check?.unsupported_count} sentence
+                    {(result.grounding_check?.unsupported_count ?? 0) === 1 ? '' : 's'} still lack a
+                    source quote found word-for-word in the report (marked below).
+                  </div>
+                )}
               </div>
             )}
+
+            <ReportJourney
+              journey={journey}
+              result={result}
+              glossary={result?.glossary ?? []}
+              activeFact={activeFact}
+              activeSentence={activeSentence}
+              highlight={highlight}
+              onFactSelect={onFactSelect}
+              onSentenceSelect={onSentenceSelect}
+              explaining={explaining}
+              onExplainWithSource={(source) => {
+                if (selectedId != null) void runExplain(selectedId, { text_source: source })
+              }}
+            />
           </div>
         )}
       </section>

@@ -41,4 +41,22 @@ describe('sentence grounding', () => {
     )
     expect(reasons).toEqual([])
   })
+
+  it('accepts ellipsis-stitched quotes when every piece matches', () => {
+    const report = 'Pathologic stage: pT3 N0 Mx. Tumor invades pericolic fat.'
+    expect(quoteFoundInReport('pT3 ... N0 ... Mx', report)).toBe(true)
+    const reasons = assessSentenceGrounding(
+      {
+        sentence: 'The stage is pT3 N0 Mx.',
+        source_fact_keys: ['pathologic_tnm_stage'],
+        quote: 'pT3 ... N0 ... Mx',
+      },
+      report,
+    )
+    expect(reasons).toEqual([])
+  })
+
+  it('rejects ellipsis quotes when a piece is missing', () => {
+    expect(quoteFoundInReport('pT3 ... N0 ... Mx', 'Pathologic stage: pT3 N0.')).toBe(false)
+  })
 })

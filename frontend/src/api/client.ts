@@ -29,11 +29,31 @@ import type {
 const SESSION_KEY = 'pathexplain_session'
 const USER_KEY = 'pathexplain_user'
 
+/** Test-only override for apiBase (Vitest cannot reliably mutate import.meta.env). */
+let _apiBaseOverride: string | null = null
+
+/** @internal */
+export function __setApiBaseForTests(value: string | null) {
+  _apiBaseOverride = value
+}
+
 /** Base URL: optional absolute origin, otherwise same-origin (Vite proxy /api). */
-function apiBase(): string {
+export function apiBase(): string {
+  if (_apiBaseOverride !== null) return _apiBaseOverride.replace(/\/$/, '')
   const env = import.meta.env.VITE_API_BASE_URL as string | undefined
   if (env && env.trim()) return env.replace(/\/$/, '')
   return ''
+}
+
+/** Resolve a backend path (e.g. `/api/...`) against `VITE_API_BASE_URL` for img/href. */
+export function apiUrl(path: string): string {
+  if (!path) return path
+  if (/^https?:\/\//i.test(path) || path.startsWith('data:') || path.startsWith('blob:')) {
+    return path
+  }
+  const base = apiBase()
+  const normalized = path.startsWith('/') ? path : `/${path}`
+  return `${base}${normalized}`
 }
 
 export function getStoredSession(): string | null {
@@ -157,6 +177,15 @@ export const api = {
 
   getReportJourney(reportId: number) {
     return request<ReportJourneyOut>(`/api/public/reports/${reportId}/journey`)
+  },
+
+  getHealth() {
+    return request<{
+      ok: boolean
+      provider?: string
+      app_env?: string
+      show_demo_tokens?: boolean
+    }>('/api/health')
   },
 
   runReportOcr(reportId: number, engine?: string) {

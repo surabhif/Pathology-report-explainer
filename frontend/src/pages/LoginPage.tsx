@@ -1,6 +1,6 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ApiError } from '../api/client'
+import { ApiError, api } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import { DEMO_TOKENS } from '../types'
 
@@ -11,6 +11,23 @@ export function LoginPage() {
   const [token, setToken] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [showDemoTokens, setShowDemoTokens] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    api
+      .getHealth()
+      .then((h) => {
+        if (!cancelled) setShowDemoTokens(Boolean(h.show_demo_tokens))
+      })
+      .catch(() => {
+        // Fail closed in prod-like deploys: hide helper if health is unreachable.
+        if (!cancelled) setShowDemoTokens(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault()
@@ -49,10 +66,11 @@ export function LoginPage() {
           <label htmlFor="invite">Invite token</label>
           <input
             id="invite"
+            type="password"
             value={token}
             onChange={(e) => setToken(e.target.value)}
-            placeholder="DEMO_ADMIN_TOKEN"
-            autoComplete="off"
+            placeholder="Invite token"
+            autoComplete="current-password"
             required
           />
         </div>
@@ -62,29 +80,29 @@ export function LoginPage() {
         </button>
       </form>
 
-      <div className="panel" style={{ marginTop: '1rem' }}>
-        <h2 className="section-title" style={{ fontSize: '1.1rem' }}>
-          Local demo tokens
-        </h2>
-        <p className="muted">
-          Convenience defaults for local development only. Production must set{' '}
-          <code>DEMO_ADMIN_TOKEN</code>, <code>DEMO_ANNOTATOR_TOKEN</code>, and{' '}
-          <code>DEMO_CLINICIAN_TOKEN</code> (or invite users from Admin) — known defaults are never
-          seeded when <code>APP_ENV=production</code>.
-        </p>
-        <div className="stack">
-          {DEMO_TOKENS.map((d) => (
-            <button
-              key={d.token}
-              type="button"
-              className="btn btn-ghost"
-              onClick={() => setToken(d.token)}
-            >
-              {d.label}: {d.token}
-            </button>
-          ))}
+      {showDemoTokens && (
+        <div className="panel" style={{ marginTop: '1rem' }}>
+          <h2 className="section-title" style={{ fontSize: '1.1rem' }}>
+            Local demo tokens
+          </h2>
+          <p className="muted">
+            Convenience defaults for local development only. Hidden when{' '}
+            <code>APP_ENV=production</code>.
+          </p>
+          <div className="stack">
+            {DEMO_TOKENS.map((d) => (
+              <button
+                key={d.token}
+                type="button"
+                className="btn btn-ghost"
+                onClick={() => setToken(d.token)}
+              >
+                {d.label}: {d.token}
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   )
 }

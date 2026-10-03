@@ -128,7 +128,7 @@ async def test_explanation_retries_once_when_ungrounded():
     good = {
         "sentences": [
             {
-                "sentence": "The cancer type is invasive lobular carcinoma.",
+                "sentence": "The cancer type is lobular.",
                 "source_fact_keys": ["diagnosis_or_histologic_type"],
                 "quote": "Invasive lobular carcinoma",
             }
@@ -151,6 +151,65 @@ async def test_explanation_retries_once_when_ungrounded():
     assert provider.complete_json.await_count == 2
     second_kwargs = provider.complete_json.await_args_list[1].kwargs
     assert "RETRY REQUIRED" in second_kwargs["user"]
+
+
+@pytest.mark.asyncio
+async def test_explanation_readability_retry_when_harder_than_source():
+    """If explanation grade is not below source / target, retry once to simplify."""
+    from app.services.explanation import generate_explanation
+
+    facts = FactSheet.model_validate(
+        {
+            "diagnosis_or_histologic_type": {
+                "value": "Invasive lobular carcinoma",
+                "quote": "Invasive lobular carcinoma",
+                "start_char": 0,
+                "end_char": 26,
+            }
+        }
+    )
+    # Hard first draft (long complex sentence) then simpler retry.
+    hard = {
+        "sentences": [
+            {
+                "sentence": (
+                    "The histopathological examination demonstrated an invasive lobular carcinoma "
+                    "characterized by discohesive cells infiltrating the stroma in a single-file "
+                    "pattern with substantial architectural complexity and concomitant findings."
+                ),
+                "source_fact_keys": ["diagnosis_or_histologic_type"],
+                "quote": "Invasive lobular carcinoma",
+            }
+        ]
+    }
+    simple = {
+        "sentences": [
+            {
+                "sentence": "The cancer type is invasive lobular carcinoma.",
+                "source_fact_keys": ["diagnosis_or_histologic_type"],
+                "quote": "Invasive lobular carcinoma",
+            }
+        ]
+    }
+
+    class HostedProvider:
+        def provider_id(self) -> str:
+            return "xai"
+
+        def model_id(self) -> str:
+            return "grok-test"
+
+        complete_json = AsyncMock(side_effect=[hard, simple])
+
+    # Short, simple source so hard draft fails simpler_than_original / target.
+    short_source = "Invasive lobular carcinoma. Grade 2."
+    provider = HostedProvider()
+    result = await generate_explanation(short_source, facts, provider)  # type: ignore[arg-type]
+    assert result.readability_retried is True
+    assert result.grounding_check.get("readability_retried") is True
+    assert result.reading_level_check.get("explanation_grade") is not None
+    assert provider.complete_json.await_count == 2
+    assert "reading level" in provider.complete_json.await_args_list[1].kwargs["user"].lower()
 
 
 @pytest.mark.asyncio
@@ -209,3 +268,38 @@ def test_ocr_stray_period_quote_still_grounds():
     g = annotated["sentences"][0]["grounding"]
     assert g["ok"] is True
     assert g["start_char"] < g["end_char"]
+
+
+def test_ellipsis_stitched_quote_grounds_when_every_piece_matches():
+    """Staging-style quote 'pT3 ... N0 ... Mx' must pass when each piece is in the report."""
+    from app.services.grounding import find_quote_span, quote_found_in_report, split_ellipsis_quote
+
+    report = (
+        "Pathologic stage: pT3 N0 Mx. "
+        "The tumor invades through the muscularis propria into pericolic adipose tissue."
+    )
+    quote = "pT3 ... N0 ... Mx"
+    assert split_ellipsis_quote(quote) == ["pT3", "N0", "Mx"]
+    assert quote_found_in_report(quote, report) is True
+    span = find_quote_span(quote, report)
+    assert span is not None
+    assert "pt3" in report[span[0] : span[1]].lower()
+
+    explanation = {
+        "sentences": [
+            {
+                "sentence": "The pathologic stage is pT3 N0 Mx.",
+                "source_fact_keys": ["pathologic_tnm_stage"],
+                "quote": quote,
+            }
+        ]
+    }
+    result = unsupported_sentences(explanation, report)
+    assert result["pass"] is True
+
+
+def test_ellipsis_quote_fails_if_any_piece_missing():
+    from app.services.grounding import quote_found_in_report
+
+    report = "Pathologic stage: pT3 N0."
+    assert quote_found_in_report("pT3 ... N0 ... Mx", report) is False

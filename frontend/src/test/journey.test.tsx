@@ -1,7 +1,10 @@
 import { render, screen, fireEvent } from '@testing-library/react'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
+import { __setApiBaseForTests } from '../api/client'
 import { ReportJourney } from '../components/ReportJourney'
 import type { ExplainResponse, ReportJourneyOut } from '../types'
+
+const API_BASE = 'https://api.test.example'
 
 const realScanJourney: ReportJourneyOut = {
   report_id: 1,
@@ -30,10 +33,12 @@ const realScanJourney: ReportJourneyOut = {
     cer: 0.12,
     wer: 0.18,
     page_count: 1,
+    source: 'precomputed',
   },
   default_ocr_engine: 'tesseract',
   has_real_scan: true,
   scan_scorable: true,
+  cached_text_sources: [],
   explain_path: '/api/public/reports/1/explain',
 }
 
@@ -92,9 +97,67 @@ function makeResult(journey: ReportJourneyOut): ExplainResponse {
 }
 
 describe('ReportJourney', () => {
-  it('shows three stages for authentic Tatonetti scans', () => {
-    const onFact = vi.fn()
-    const onSentence = vi.fn()
+  beforeEach(() => {
+    __setApiBaseForTests(API_BASE)
+  })
+
+  afterEach(() => {
+    __setApiBaseForTests(null)
+  })
+
+  it('prefixes scan image src with the API base URL', () => {
+    render(
+      <ReportJourney
+        journey={realScanJourney}
+        result={null}
+        glossary={[]}
+        activeFact={null}
+        activeSentence={null}
+        highlight={{ quote: null, start: null, end: null }}
+        onFactSelect={vi.fn()}
+        onSentenceSelect={vi.fn()}
+      />,
+    )
+    const img = screen.getByRole('img', { name: /Pathology report scan page 1/i })
+    expect(img.getAttribute('src')).toBe(
+      `${API_BASE}/api/public/reports/1/scan-pages/page-01.jpg`,
+    )
+  })
+
+  it('shows three stages for authentic Tatonetti scans without auto-explaining', () => {
+    const onExplain = vi.fn()
+    render(
+      <ReportJourney
+        journey={realScanJourney}
+        result={null}
+        glossary={[]}
+        activeFact={null}
+        activeSentence={null}
+        highlight={{ quote: null, start: null, end: null }}
+        onFactSelect={vi.fn()}
+        onSentenceSelect={vi.fn()}
+        onExplainWithSource={onExplain}
+      />,
+    )
+
+    expect(screen.getByRole('tab', { name: /Scanned report/i })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: /OCR text/i })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: /Facts & explanation/i })).toBeInTheDocument()
+    expect(screen.getByText(/Tatonetti lab Textract input/i)).toBeInTheDocument()
+    expect(onExplain).not.toHaveBeenCalled()
+
+    fireEvent.click(screen.getByRole('tab', { name: /OCR text/i }))
+    expect(screen.getByRole('button', { name: /^Our OCR$/i })).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: /Generate explanation \(Our OCR\)/i }),
+    ).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('tab', { name: /Facts & explanation/i }))
+    expect(screen.getByRole('button', { name: /^Generate explanation$/i })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: /^Structured facts$/i })).not.toBeInTheDocument()
+  })
+
+  it('shows facts after an explanation result is provided', () => {
     render(
       <ReportJourney
         journey={realScanJourney}
@@ -103,21 +166,10 @@ describe('ReportJourney', () => {
         activeFact={null}
         activeSentence={null}
         highlight={{ quote: null, start: null, end: null }}
-        onFactSelect={onFact}
-        onSentenceSelect={onSentence}
+        onFactSelect={vi.fn()}
+        onSentenceSelect={vi.fn()}
       />,
     )
-
-    expect(screen.getByRole('tab', { name: /Scanned report/i })).toBeInTheDocument()
-    expect(screen.getByRole('tab', { name: /OCR text/i })).toBeInTheDocument()
-    expect(screen.getByRole('tab', { name: /Facts & explanation/i })).toBeInTheDocument()
-    expect(screen.getByText(/Tatonetti lab Textract input/i)).toBeInTheDocument()
-
-    fireEvent.click(screen.getByRole('tab', { name: /OCR text/i }))
-    expect(screen.getByRole('button', { name: /Our OCR/i })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /TCGA-Reports OCR/i })).toBeInTheDocument()
-
-    fireEvent.click(screen.getByRole('tab', { name: /Facts & explanation/i }))
     expect(screen.getByRole('heading', { name: /^Structured facts$/i })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: /^Plain-language explanation$/i })).toBeInTheDocument()
   })
@@ -126,7 +178,7 @@ describe('ReportJourney', () => {
     render(
       <ReportJourney
         journey={noScanJourney}
-        result={makeResult(noScanJourney)}
+        result={null}
         glossary={[]}
         activeFact={null}
         activeSentence={null}
@@ -139,8 +191,8 @@ describe('ReportJourney', () => {
 
     expect(screen.queryByRole('tab', { name: /Scanned report/i })).not.toBeInTheDocument()
     expect(screen.getByText(/Stage 1 \(scanned page\) is hidden/i)).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('tab', { name: /OCR text/i }))
     expect(screen.queryByRole('button', { name: /^Our OCR$/i })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /Explain from Our OCR/i })).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /Explain from reference/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^Generate explanation$/i })).toBeInTheDocument()
   })
 })

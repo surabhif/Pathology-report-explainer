@@ -10,8 +10,15 @@ export function normalizeQuote(quote: string | null | undefined): string {
 export function quoteFoundInReport(quote: string, reportText: string): boolean {
   const q = normalizeQuote(quote)
   if (!q || !reportText) return false
-  if (reportText.includes(q)) return true
-  return reportText.toLowerCase().includes(q.toLowerCase())
+  const pieces = q
+    .split(/\.{3}|…/)
+    .map((p) => p.trim())
+    .filter(Boolean)
+  const parts = pieces.length ? pieces : [q]
+  return parts.every((part) => {
+    if (reportText.includes(part)) return true
+    return reportText.toLowerCase().includes(part.toLowerCase())
+  })
 }
 
 export function assessSentenceGrounding(

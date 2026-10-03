@@ -164,6 +164,9 @@ class ReportJourneyOut(BaseModel):
     # Stage 1 is shown only when authentic scan pages are cached (never facsimiles).
     has_real_scan: bool = False
     scan_scorable: bool = False
+    # text_source values that already have a cached Generation for the active provider
+    # (opening a case can show stage 3 without a new LLM call when present).
+    cached_text_sources: list[str] = Field(default_factory=list)
     # Stage 3 pointer — client loads explain separately
     explain_path: str
 
@@ -195,8 +198,10 @@ class ExplainResponse(BaseModel):
     requested_model: str | None = None
     # True when the explainer re-asked the model after unsupported sentences.
     explanation_retried: bool = False
-    # Snapshot of unsupported_sentences check at generation time.
+    # Snapshot of unsupported_sentences (+ reading_level) check at generation time.
     grounding_check: dict[str, Any] | None = None
+    # True when a readability (simplify) retry was attempted.
+    readability_retried: bool = False
     # Optional journey metadata (scan pages + OCR attribution).
     journey: ReportJourneyOut | None = None
     # Which text was used: reference (TCGA-Reports) | our_ocr

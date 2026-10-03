@@ -238,6 +238,84 @@ async def test_admin_live_ocr_requires_auth(client):
     assert res.status_code in {401, 403}
 
 
+@pytest.mark.asyncio
+async def test_public_ocr_ignores_newer_live_admin_run(client, admin_headers, monkeypatch):
+    """Public Stage 2 must keep serving precomputed even if a live run is newer."""
+    from app.services.ocr import OcrPageResult
+
+    class LiveEngine:
+        def engine_id(self) -> str:
+            return "tesseract"
+
+        def engine_version(self) -> str:
+            return "tesseract-live-test"
+
+        async def ocr_image_bytes(self, image_bytes, *, mime="image/jpeg", page=1):
+            return OcrPageResult(
+                page=page,
+                text="LIVE ADMIN OCR TEXT SHOULD NOT APPEAR PUBLICLY",
+                duration_ms=10.0,
+            )
+
+    monkeypatch.setattr(
+        "app.services.ocr.pipeline.get_ocr_engine",
+        lambda _name=None: LiveEngine(),
+    )
+
+    reports = (await client.get("/api/public/reports?cancer_type=BRCA")).json()
+    rid = reports[0]["id"]
+    pre = await client.get(f"/api/public/reports/{rid}/ocr")
+    assert pre.status_code == 200
+    assert pre.json()["source"] == "precomputed"
+    pre_text = pre.json()["text"]
+
+    live = await client.post(
+        f"/api/admin/ocr/run?report_id={rid}&force=true&engine=tesseract&max_pages=1",
+        headers=admin_headers,
+    )
+    assert live.status_code == 200, live.text
+    assert live.json()["source"] == "live"
+    assert "LIVE ADMIN" in live.json()["text"]
+
+    pub = await client.get(f"/api/public/reports/{rid}/ocr")
+    assert pub.status_code == 200
+    body = pub.json()
+    assert body["source"] == "precomputed"
+    assert body["text"] == pre_text
+    assert "LIVE ADMIN" not in body["text"]
+
+    j = await client.get(f"/api/public/reports/{rid}/journey")
+    assert j.json()["our_ocr"]["source"] == "precomputed"
+    assert "LIVE ADMIN" not in (j.json()["our_ocr"]["text"] or "")
+
+
+@pytest.mark.asyncio
+async def test_health_hides_demo_tokens_in_production(client, monkeypatch):
+    from app.config import get_settings
+
+    monkeypatch.setenv("APP_ENV", "production")
+    get_settings.cache_clear()
+    h = await client.get("/api/health")
+    assert h.status_code == 200
+    body = h.json()
+    assert body["ok"] is True
+    assert body["show_demo_tokens"] is False
+    assert body["app_env"] == "production"
+    monkeypatch.delenv("APP_ENV", raising=False)
+    get_settings.cache_clear()
+
+
+@pytest.mark.asyncio
+async def test_imported_benchmark_notes_missing_extraction_impact(client, admin_headers):
+    forced = await client.post(
+        "/api/admin/ocr/import-benchmark?force=true", headers=admin_headers
+    )
+    assert forced.status_code == 200
+    impact = forced.json()["summary"].get("extraction_impact") or {}
+    assert "note" in impact
+    assert "not computed" in impact["note"].lower() or "offline" in impact["note"].lower()
+
+
 def test_default_ocr_max_pages_is_one():
     from app.config import get_settings
 
