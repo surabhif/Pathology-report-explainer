@@ -351,8 +351,9 @@ def _seed_rubric(db: Session) -> None:
 
 def _sample_reports_for_seed() -> list[dict]:
     """Prefer real TCGA-Reports excerpts from data/sample_reports.json when present."""
-    repo_root = Path(__file__).resolve().parents[2]
-    sample_path = repo_root / "data" / "sample_reports.json"
+    from app.config import get_settings
+
+    sample_path = Path(get_settings().data_dir) / "sample_reports.json"
     if sample_path.exists():
         try:
             items = json.loads(sample_path.read_text(encoding="utf-8"))

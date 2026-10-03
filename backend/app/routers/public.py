@@ -30,6 +30,7 @@ from app.services.extraction import extract_facts
 from app.services.glossary import load_glossary
 from app.services.llm.errors import LLMServiceError
 from app.services.llm.factory import get_llm_provider
+from app.services.ocr.concurrency import OcrBusyError
 from app.services.ocr.metrics import ocr_error_metrics, word_diff_spans
 from app.services.ocr.pipeline import latest_ocr_run, run_ocr_on_report
 from app.services.rate_limit import client_ip_key
@@ -265,6 +266,11 @@ async def report_ocr(
         run = await run_ocr_on_report(db, report, engine_name=engine, force=force)
     except FileNotFoundError as exc:
         raise HTTPException(404, str(exc)) from exc
+    except OcrBusyError as exc:
+        raise HTTPException(
+            status_code=429,
+            detail={"message": str(exc), "code": exc.code},
+        ) from exc
     except LLMServiceError as exc:
         status = 504 if "timeout" in exc.code else 502
         raise HTTPException(status_code=status, detail={"message": exc.message, "code": exc.code}) from exc
@@ -386,6 +392,11 @@ async def explain_report(
             ocr_run = await run_ocr_on_report(db, report, engine_name=ocr_engine)
         except FileNotFoundError as exc:
             raise HTTPException(404, str(exc)) from exc
+        except OcrBusyError as exc:
+            raise HTTPException(
+                status_code=429,
+                detail={"message": str(exc), "code": exc.code},
+            ) from exc
         except LLMServiceError as exc:
             status = 504 if "timeout" in exc.code else 502
             raise HTTPException(

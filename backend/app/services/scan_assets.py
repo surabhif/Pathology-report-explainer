@@ -45,8 +45,9 @@ def case_submitter_id(barcode: str) -> str:
 
 def scan_cache_root() -> Path:
     """Repo data/scan_cache — committed demo pages live here."""
-    # backend/app/services → backend → repo
-    return Path(__file__).resolve().parents[3] / "data" / "scan_cache"
+    from app.config import get_settings
+
+    return Path(get_settings().data_dir) / "scan_cache"
 
 
 def case_cache_dir(barcode: str) -> Path:

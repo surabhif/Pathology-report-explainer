@@ -9,6 +9,11 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 BACKEND_ROOT = Path(__file__).resolve().parent.parent
 
 
+def _default_data_dir() -> Path:
+    """Repo-root `data/` locally; `/srv/data` in the Docker image (sibling of `/srv/backend`)."""
+    return BACKEND_ROOT.parent / "data"
+
+
 class Settings(BaseSettings):
     """Central configuration. Override any field with env vars or a .env file."""
 
@@ -62,6 +67,11 @@ class Settings(BaseSettings):
     ocr_vision_model: str = ""
     # image detail for xAI vision: low (cheap) | high | auto
     ocr_vision_detail: str = "low"
+    # Concurrent Tesseract jobs (Render free ≈512 MB — keep at 1).
+    # Peak RSS per job is roughly 150–250 MB on our 1400px page images.
+    ocr_max_concurrent: int = 1
+    # Extra callers allowed to wait for a slot; beyond this → HTTP 429.
+    ocr_max_queue: int = 2
 
     # --- CORS ---
     cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
@@ -73,6 +83,8 @@ class Settings(BaseSettings):
     trust_proxy_headers: bool = False
 
     # --- Paths ---
+    # DATA_DIR overrides the default (sibling of backend/: repo-root/data or /srv/data).
+    data_dir: Path = _default_data_dir()
     prompts_dir: Path = BACKEND_ROOT / "prompts"
     config_dir: Path = BACKEND_ROOT / "config"
     docs_dir: Path = BACKEND_ROOT / "docs"

@@ -15,7 +15,7 @@ You do **not** need deploy credentials to develop locally. This document is the 
 | Piece | Where |
 |-------|--------|
 | React front end | **Vercel** — project root directory `frontend/` |
-| FastAPI back end | **Render** Web Service — root directory `backend/` |
+| FastAPI back end | **Render** Web Service — **Docker**, build context = **repo root** (so `data/` is in the image) |
 | Database | **Neon** Postgres (`DATABASE_URL`) |
 | LLM | **xAI Grok** via OpenAI-compatible `https://api.x.ai/v1` (`LLM_API_KEY` on Render only) |
 
@@ -31,19 +31,35 @@ You do **not** need deploy credentials to develop locally. This document is the 
 
 ## Render (API)
 
-### Option A — Docker (recommended when using Tesseract OCR)
+### Option A — Docker (required for Tesseract OCR + bundled scan data)
+
+Build context must be the **repository root** so `data/` (30 sample reports, authentic scan pages, OCR cache) is copied into the image. Do **not** set Root Directory to `backend/` — that omits `data/` and breaks Stage 1 / OCR benchmarks.
 
 | Setting | Value |
 |---------|--------|
-| Root Directory | `backend` |
+| Root Directory | *(empty / repository root)* |
 | Runtime | **Docker** |
-| Dockerfile Path | `./Dockerfile` |
+| Dockerfile Path | `./backend/Dockerfile` |
 | Docker Command | *(leave empty — image `CMD` starts uvicorn)* |
 | Auto-Deploy | **Off** |
 
+Image layout:
+
+- `/srv/backend` — FastAPI app (`WORKDIR`)
+- `/srv/data` — `DATA_DIR` (sample_reports.json, scan_cache/, ocr_cache/)
+
+Local build check:
+
+```bash
+bash scripts/verify_docker_image.sh
+# equivalent: docker build -f backend/Dockerfile -t pathexplain-api .
+```
+
 The Dockerfile installs `tesseract-ocr` + English trained data so `OCR_ENGINE=tesseract` works on Render’s free tier without a paid OCR API.
 
-### Option B — Native Python (no system Tesseract)
+**Memory (Render free ≈512 MB):** Tesseract on our ~1400px page images typically peaks around **150–250 MB RSS per job**. Concurrent OCR can OOM the instance, so the image defaults to `OCR_MAX_CONCURRENT=1` with `OCR_MAX_QUEUE=2`. Extra callers receive **HTTP 429** (`code=ocr_busy`) until a slot frees. Do not raise concurrency on the free tier without measuring RSS.
+
+### Option B — Native Python (no system Tesseract, no bundled `data/` from Docker)
 
 | Setting | Value |
 |---------|--------|
@@ -53,7 +69,7 @@ The Dockerfile installs `tesseract-ocr` + English trained data so `OCR_ENGINE=te
 | Build Command | `pip install -r requirements.txt` |
 | Start Command | `uvicorn app.main:app --host 0.0.0.0 --port $PORT` |
 
-Without the Docker image, set `OCR_ENGINE=mock` or `OCR_ENGINE=xai_vision` (requires API key). Native Python on Render cannot install apt packages for Tesseract.
+Without the Docker image, set `OCR_ENGINE=mock` or `OCR_ENGINE=xai_vision` (requires API key), and ensure scan pages are available somehow (Native Python **does not** ship `data/scan_cache`). Native Python on Render cannot install apt packages for Tesseract.
 
 Health check path: `/api/health` → `{"ok": true, "provider": …}`.
 
@@ -73,8 +89,11 @@ Health check path: `/api/health` → `{"ok": true, "provider": …}`.
 | `LLM_TIMEOUT_SECONDS` | Optional | Default `120`. Raise if you use a slow reasoning model |
 | `OCR_ENGINE` | Optional | Default `tesseract`. Also `xai_vision` or `mock` |
 | `OCR_MAX_PAGES` | Optional | Default `2` (cost/latency bound) |
+| `OCR_MAX_CONCURRENT` | Optional | Default `1` — keep at 1 on Render free (512 MB) |
+| `OCR_MAX_QUEUE` | Optional | Default `2` waiters; beyond this OCR returns **429** |
 | `OCR_VISION_MODEL` | Optional | Empty → LLM/xAI default model |
 | `OCR_VISION_DETAIL` | Optional | `low` (default, cheaper) \| `high` \| `auto` |
+| `DATA_DIR` | Optional | Default `/srv/data` in Docker; repo-root `data/` locally |
 | `SEED_ON_STARTUP` | Optional | `true` to seed sample reports/prompts; demo **users** only if `DEMO_*_TOKEN` set |
 | `DEMO_ADMIN_TOKEN` | Optional | If unset in production, demo admin is **not** seeded |
 | `DEMO_ANNOTATOR_TOKEN` | Optional | Same |
@@ -85,12 +104,13 @@ Invite clinicians from the Admin UI when demo tokens are not used.
 
 ### Deploy config changes checklist (Render / Vercel)
 
-**Render (required for Tesseract default):**
+**Render (required for Tesseract default + scan data):**
 1. Switch the Web Service from Native Python → **Docker**.
-2. Set Dockerfile path to `./Dockerfile` (root directory still `backend`).
-3. Add OCR env vars if you want Grok vision instead: `OCR_ENGINE=xai_vision`, keep `LLM_API_KEY`.
-4. Redeploy manually after merge.
-5. Ensure `data/scan_cache/` (authentic Tatonetti/GDC pages) is present in the image or mounted — OCR benchmarks refuse facsimile pages.
+2. Clear **Root Directory** (empty = repo root). Set **Dockerfile Path** to `./backend/Dockerfile`.
+3. Confirm `DATA_DIR=/srv/data` (image default) so Stage 1 / OCR see `sample_reports.json` + `scan_cache/`.
+4. Keep `OCR_MAX_CONCURRENT=1` on the free tier; raise only after measuring memory.
+5. Add OCR env vars if you want Grok vision instead: `OCR_ENGINE=xai_vision`, keep `LLM_API_KEY`.
+6. Redeploy manually after merge.
 
 **Vercel:** no new env vars required for OCR (OCR runs only on the API). Existing `VITE_API_BASE_URL` is enough.
 

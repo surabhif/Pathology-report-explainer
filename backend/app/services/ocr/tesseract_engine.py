@@ -7,12 +7,17 @@ import logging
 import time
 
 from app.services.ocr import OcrPageResult
+from app.services.ocr.concurrency import run_with_ocr_slot
 
 logger = logging.getLogger(__name__)
 
 
 class TesseractOcrEngine:
-    """Wraps pytesseract + system tesseract-ocr package."""
+    """Wraps pytesseract + system tesseract-ocr package.
+
+    Concurrency is gated by ``run_with_ocr_slot`` so Render's ~512 MB free
+    instances do not OOM when several OCR requests arrive together.
+    """
 
     name = "tesseract"
 
@@ -40,7 +45,10 @@ class TesseractOcrEngine:
     ) -> OcrPageResult:
         import asyncio
 
-        return await asyncio.to_thread(self._ocr_sync, image_bytes, page)
+        async def _run() -> OcrPageResult:
+            return await asyncio.to_thread(self._ocr_sync, image_bytes, page)
+
+        return await run_with_ocr_slot(_run)
 
     def _ocr_sync(self, image_bytes: bytes, page: int) -> OcrPageResult:
         import pytesseract

@@ -69,7 +69,7 @@ Salil’s product ask: show how a scanned page becomes structured content — **
 
 | Engine | Pros | Cons | When to use |
 |--------|------|------|-------------|
-| **Tesseract** (default) | Free; no API key; predictable; fits Render free tier with Dockerfile | Weaker on noisy scans | Demo, CI, benchmarks, cost control |
+| **Tesseract** (default) | Free; no API key; predictable; fits Render free tier with Dockerfile (`OCR_MAX_CONCURRENT=1`) | Weaker on noisy scans; serial on 512 MB | Demo, CI, benchmarks, cost control |
 | **xAI Grok vision** | Strong on hard layouts; uses existing `LLM_PROVIDER=xai` key | Token + latency cost; needs key | Ablations / quality comparison (`OCR_ENGINE=xai_vision`) |
 
 Every OCR run stores `engine`, `engine_version`, timing (`duration_ms`), and optional `estimated_cost_usd`. Results are disk-cached under `data/ocr_cache/` and in `ocr_runs` so demos do not re-spend vision tokens.

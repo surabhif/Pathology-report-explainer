@@ -12,7 +12,9 @@ logger = logging.getLogger(__name__)
 
 
 def ocr_cache_root() -> Path:
-    return Path(__file__).resolve().parents[4] / "data" / "ocr_cache"
+    from app.config import get_settings
+
+    return Path(get_settings().data_dir) / "ocr_cache"
 
 
 def _key(barcode: str, engine: str, engine_version: str, page_fingerprints: list[str]) -> str:

@@ -34,6 +34,7 @@ from app.schemas import (
 )
 from app.services.checks import run_all_checks
 from app.services.import_reports import import_report
+from app.services.ocr.concurrency import OcrBusyError
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/admin", tags=["admin"])
@@ -318,7 +319,13 @@ async def ocr_upload_test(
 
     eng = get_ocr_engine(engine)
     mime = "image/png" if name.endswith(".png") else "image/jpeg"
-    page = await eng.ocr_image_bytes(blob, mime=mime, page=1)
+    try:
+        page = await eng.ocr_image_bytes(blob, mime=mime, page=1)
+    except OcrBusyError as exc:
+        raise HTTPException(
+            status_code=429,
+            detail={"message": str(exc), "code": getattr(exc, "code", "ocr_busy")},
+        ) from exc
     # Do not persist the uploaded image bytes — evaluation text only, ephemeral response.
     return {
         "warning": (

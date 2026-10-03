@@ -88,7 +88,10 @@ See [`.env.example`](.env.example). Important ones:
 | `LLM_TIMEOUT_SECONDS` | Hosted LLM HTTP timeout | `120` |
 | `OCR_ENGINE` | `tesseract` (default), `xai_vision`, or `mock` | `tesseract` |
 | `OCR_MAX_PAGES` | Max pages OCR’d per report | `2` |
+| `OCR_MAX_CONCURRENT` | Max parallel Tesseract jobs (keep `1` on Render free 512 MB) | `1` |
+| `OCR_MAX_QUEUE` | Extra OCR waiters before HTTP 429 | `2` |
 | `OCR_VISION_DETAIL` | Vision OCR detail (`low`/`high`/`auto`) | `low` |
+| `DATA_DIR` | Scan pages + sample reports root | repo-root `data/` (Docker: `/srv/data`) |
 | `LLM_API_KEY` | Server-only key (xAI or OpenAI) | empty |
 | `XAI_API_KEY` | Optional alias when `LLM_PROVIDER=xai` | empty |
 | `LLM_BASE_URL` | OpenAI-compatible base URL | empty → `https://api.x.ai/v1` for xai |
@@ -116,6 +119,9 @@ If `LLM_PROVIDER=xai` (or `openai`) is set but no key is present, the backend **
 ```bash
 cd backend && source .venv/bin/activate && pytest -q
 cd frontend && npm test -- --run
+
+# Docker image includes data/ (scan cache + 30 sample reports). Build from repo root:
+bash scripts/verify_docker_image.sh
 ```
 
 ## Importing more TCGA reports

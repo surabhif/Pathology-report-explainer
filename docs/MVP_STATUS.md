@@ -20,14 +20,16 @@
 - Seed data, sample TCGA JSON, download/import script
 - Tests (backend + frontend), GitHub Actions CI
 - Docs: README, DESIGN, DEPLOY (Docker + Tesseract), ABOUT/model card
-- `backend/Dockerfile` for Render free-tier Tesseract
+- `backend/Dockerfile` for Render free-tier Tesseract (build from **repo root** so `data/` is bundled; `OCR_MAX_CONCURRENT=1` for 512 MB)
+- CI job builds the Docker image and asserts `sample_reports.json` (≥30) + `scan_cache` are present
 
 ## Thin / stubbed (intentional for days-not-weeks)
 
 - **Live GDC enrichment:** barcode→TSS map + optional API helper; seed uses static metadata blobs. Full live GDC sync is optional (`--fetch-gdc` / network).
 - **Scan source:** demo pages are Tatonetti Textract-input images (range-fetched); GDC PDF remains an alternate when GDC is up. Facsimiles are unscorable and not shown publicly.
 - **Scan-region highlight:** omitted without Textract bounding boxes; OCR-text quote highlight is implemented.
-- **Native Render without Docker:** Tesseract unavailable — switch the Render service to **Docker** (`backend/Dockerfile`) or set `OCR_ENGINE=xai_vision`/`mock`.
+- **Native Render without Docker:** Tesseract unavailable — switch the Render service to **Docker** with empty Root Directory + Dockerfile Path `./backend/Dockerfile` (see `DEPLOY.md`), or set `OCR_ENGINE=xai_vision`/`mock`.
+- **Render free memory:** keep `OCR_MAX_CONCURRENT=1` (≈150–250 MB per Tesseract job); overflow returns HTTP 429.
 - **Alembic:** initial migration present; local MVP uses SQLAlchemy `create_all` on startup.
 - **Magic-link email delivery:** invite tokens work; no SMTP/sendgrid — admin copies tokens.
 - **Inter-rater:** computed when ≥2 clinicians score the same generation; seed only assigns one clinician (metric appears after dual assignment).

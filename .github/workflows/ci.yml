@@ -42,3 +42,10 @@ jobs:
         run: npm test -- --run
       - name: Build
         run: npm run build
+
+  docker-image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build image and verify bundled data/
+        run: bash scripts/verify_docker_image.sh
