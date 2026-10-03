@@ -28,11 +28,17 @@ class Settings(BaseSettings):
     session_cookie_name: str = "pathology_session"
 
     # --- LLM provider (provider-agnostic) ---
-    # LLM_PROVIDER: "mock" (default, deterministic, no API key) or "openai"
+    # LLM_PROVIDER: "mock" (default, no API key) | "xai" (Grok) | "openai"
+    # When a hosted provider is selected but no key is set, the factory falls
+    # back to mock so local demos keep working.
     llm_provider: str = "mock"
-    llm_model: str = "gpt-4o-mini"
+    # Empty / placeholder → provider-specific default (xai → grok-4.7, openai → gpt-4o-mini)
+    llm_model: str = "mock-heuristic-v1"
     llm_api_key: str = ""
-    llm_base_url: str = "https://api.openai.com/v1"
+    # Empty → provider-specific default (xai → https://api.x.ai/v1)
+    llm_base_url: str = ""
+    # Optional alias for xAI (also read from env XAI_API_KEY). Prefer LLM_API_KEY.
+    xai_api_key: str = ""
 
     # --- CORS ---
     cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"

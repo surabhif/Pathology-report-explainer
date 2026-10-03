@@ -30,6 +30,8 @@ A small sample set is committed under `data/sample_reports.json`. The full ~9,50
 
 The API key for any hosted LLM stays on the server. The default provider is **mock** so the demo runs without credentials.
 
+For production-quality extraction/explanation, this project uses **xAI Grok** (`LLM_PROVIDER=xai`) through the OpenAI-compatible endpoint `https://api.x.ai/v1`. The default model id is **`grok-4.7`**, which supports structured / JSON outputs; set `LLM_MODEL` to pin or change versions. If `LLM_PROVIDER=xai` is set without a key, the backend falls back to mock.
+
 ## Evaluation
 
 Built into the product as roles and tasks:

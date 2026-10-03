@@ -1,7 +1,7 @@
 # Pathology Report Explainer — Backend
 
-FastAPI MVP with SQLite (Postgres-ready), invite-token auth, mock/OpenAI LLM
-providers, grounded explanations, and automatic evaluation checks.
+FastAPI MVP with SQLite (Postgres-ready), invite-token auth, mock / **xAI Grok** /
+OpenAI LLM providers, grounded explanations, and automatic evaluation checks.
 
 ## Quick start
 

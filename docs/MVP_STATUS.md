@@ -11,7 +11,7 @@
 - Auto-checks: field accuracy vs gold, TCGA metadata agreement, number grounding, unsupported sentences, reading level
 - Results dashboard: metrics + 95% CIs, per-field / per-cancer, clinician scores, inter-rater when multi-rated, failures, CSV export
 - Version tags on generations (prompt + model/provider)
-- Mock LLM provider (default) + OpenAI-compatible provider interface
+- Mock LLM provider (default) + **xAI Grok** (`LLM_PROVIDER=xai` → `https://api.x.ai/v1`, default `grok-4.7`) + OpenAI-compatible interface
 - Seed data, sample TCGA JSON, download/import script
 - Tests (backend 30, frontend smoke), GitHub Actions CI
 - Docs: README, DESIGN, DEPLOY, ABOUT/model card
@@ -22,7 +22,7 @@
 - **Alembic:** initial migration present; local MVP uses SQLAlchemy `create_all` on startup.
 - **Magic-link email delivery:** invite tokens work; no SMTP/sendgrid — admin copies tokens.
 - **Inter-rater:** computed when ≥2 clinicians score the same generation; seed only assigns one clinician (metric appears after dual assignment).
-- **Real LLM quality:** mock heuristics power local demos; set `LLM_API_KEY` for hosted models.
+- **Real LLM quality:** mock heuristics power local demos; set `LLM_PROVIDER=xai` and `LLM_API_KEY` (or `XAI_API_KEY`) for Grok. Falls back to mock if the key is missing.
 - **Vercel serverless FastAPI:** documented as experimental; Railway/Render/Fly recommended for the API.
 - **Prompt editor UI:** prompts are versioned files/DB records; editing is file- or admin-DB based, not a rich in-app editor.
 - **Full TCGA corpus:** not committed (~35MB CSV); use `download_and_import_tcga.py`.

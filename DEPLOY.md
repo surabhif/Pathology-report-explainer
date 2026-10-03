@@ -9,7 +9,8 @@ You do **not** need deploy credentials to develop. This document is the checklis
 | React front end | **Vercel** (this repo’s `frontend/`) |
 | FastAPI back end | **Vercel Python serverless** *or* a small always-on host (Railway / Render / Fly) |
 | Database | **Neon** or **Supabase** Postgres (`DATABASE_URL`) |
-| LLM | Hosted OpenAI-compatible API (`LLM_API_KEY` on the **server only**) |
+| LLM | **xAI Grok** (OpenAI-compatible at `https://api.x.ai/v1`) via `LLM_API_KEY` / `XAI_API_KEY` on the **server only** |
+
 
 ### Why the backend may leave Vercel
 
@@ -22,10 +23,11 @@ FastAPI + SQLAlchemy + longer LLM calls fit poorly on short serverless timeouts.
 | Name | Required | Notes |
 |------|----------|-------|
 | `DATABASE_URL` | Yes (prod) | Postgres DSN, e.g. Neon `postgresql+psycopg://…?sslmode=require` |
-| `LLM_PROVIDER` | Yes | `mock` until you add a key; then `openai` |
-| `LLM_MODEL` | Yes | e.g. `gpt-4o-mini` |
-| `LLM_API_KEY` | For real LLM | **Never** put in `VITE_*` or front-end env |
-| `LLM_BASE_URL` | Optional | Default OpenAI; change for Azure/OpenRouter/etc. |
+| `LLM_PROVIDER` | Yes | `mock` until you add a key; then **`xai`** (or `openai`) |
+| `LLM_MODEL` | Yes for hosted | **`grok-4.7`** for xAI (structured/JSON capable; override anytime) |
+| `LLM_API_KEY` | For real LLM | xAI key from [console.x.ai](https://console.x.ai) — **Never** put in `VITE_*` |
+| `XAI_API_KEY` | Optional | Alias accepted when `LLM_PROVIDER=xai` |
+| `LLM_BASE_URL` | Optional | For xAI: `https://api.x.ai/v1` (applied automatically if omitted / OpenAI leftover) |
 | `CORS_ORIGINS` | Yes | Your Vercel URL, e.g. `https://pathexplain.vercel.app` |
 | `SEED_ON_STARTUP` | Optional | `true` once to seed demo users; then `false` |
 | `RATE_LIMIT_EXPLAIN` | Optional | e.g. `30/minute` |
@@ -72,18 +74,25 @@ FastAPI + SQLAlchemy + longer LLM calls fit poorly on short serverless timeouts.
 2. Open the site → Login → redeem `DEMO_ADMIN_TOKEN` (change/disable demo tokens before any public launch).
 3. Invite real clinicians from Admin (generates invite tokens).
 
-### 5. Flip on a real LLM
+### 5. Flip on xAI Grok
 
-1. Set `LLM_PROVIDER=openai`, `LLM_MODEL=…`, `LLM_API_KEY=…`.
-2. Keep the key only on the API service.
-3. Re-run public explain / auto-checks; compare versions on the results dashboard (outputs are tagged with prompt + model).
+1. Create an API key at [console.x.ai](https://console.x.ai).
+2. Set on the **API service only**:
+   - `LLM_PROVIDER=xai`
+   - `LLM_MODEL=grok-4.7` (or another current Grok text model; must support structured/JSON output)
+   - `LLM_API_KEY=…` (or `XAI_API_KEY=…`)
+   - `LLM_BASE_URL=https://api.x.ai/v1`
+3. Restart the API. Generations are tagged with `provider=xai` and the model id for version comparison.
+4. If the key is missing, the app falls back to the mock provider so the site still boots.
+
+(OpenAI remains available via `LLM_PROVIDER=openai` if needed.)
 
 ## Accounts needed
 
 1. **GitHub** — this repo  
 2. **Vercel** — frontend (and optionally API)  
 3. **Neon or Supabase** — Postgres  
-4. **LLM provider** — API key (OpenAI or compatible)  
+4. **LLM provider** — **xAI** API key (preferred); OpenAI also works via the same interface  
 5. Optional: **Railway/Render/Fly** — if API is not on Vercel  
 
 ## Security checklist

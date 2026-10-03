@@ -23,9 +23,9 @@ Why not one-shot summarization? Summaries invent details. Separating extraction 
 
 ## Mock provider first
 
-A deterministic heuristic/mock provider ships so the app, tests, and demos run **without an API key**. A real OpenAI-compatible provider is behind the same interface (`LLM_PROVIDER`, `LLM_MODEL`, `LLM_API_KEY`). Surabhi can swap models later and compare versions because every generation stores prompt + model tags.
+A deterministic heuristic/mock provider ships so the app, tests, and demos run **without an API key**. Hosted models share one OpenAI-compatible client. For this project Salil chose **xAI Grok** (`LLM_PROVIDER=xai`, base URL `https://api.x.ai/v1`, default model `grok-4.7` with structured/JSON output). OpenAI remains available via `LLM_PROVIDER=openai`. Surabhi can swap models with `LLM_MODEL` and compare versions because every generation stores prompt + model tags.
 
-Tradeoff: mock quality is weaker than a strong LLM; that’s acceptable for wiring the evaluation science.
+Tradeoff: mock quality is weaker than Grok; that’s acceptable for wiring the evaluation science before the API key is added.
 
 ## Evaluation is a first-class product surface
 

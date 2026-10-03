@@ -17,12 +17,13 @@ A college-application research project by **Surabhi Fadnavis** (aspiring surgica
                         ┌───────────────┼───────────────┐
                         ▼               ▼               ▼
                    SQLite/Postgres   prompts/        LLM provider
-                   (DATABASE_URL)    schema/rubric   (mock | OpenAI-compatible)
+                   (DATABASE_URL)    schema/rubric   (mock | xAI Grok | OpenAI-compatible)
 ```
 
 - **Frontend:** React + TypeScript (Vite)
 - **Backend:** Python FastAPI — LLM API keys never reach the browser
 - **Default LLM:** deterministic **mock** provider (no API key required)
+- **Hosted LLM (chosen for this project):** **xAI Grok** via `LLM_PROVIDER=xai` → `https://api.x.ai/v1` (OpenAI-compatible); default model `grok-4.7` (structured/JSON output). Model id is always overridable with `LLM_MODEL`.
 - **Data:** TCGA-Reports (Kefeli et al., Patterns 2024); small sample committed under `data/`
 
 ## Quick start (mock provider)
@@ -82,13 +83,25 @@ See [`.env.example`](.env.example). Important ones:
 | Variable | Purpose | Local default |
 |----------|---------|---------------|
 | `DATABASE_URL` | Postgres or SQLite | SQLite file in `backend/` |
-| `LLM_PROVIDER` | `mock` or `openai` | `mock` |
-| `LLM_MODEL` | Model id | `mock-heuristic-v1` |
-| `LLM_API_KEY` | Server-only key | empty |
-| `LLM_BASE_URL` | OpenAI-compatible base URL | OpenAI |
+| `LLM_PROVIDER` | `mock`, `xai`, or `openai` | `mock` |
+| `LLM_MODEL` | Model id | `mock-heuristic-v1` (local); for xAI use `grok-4.7` |
+| `LLM_API_KEY` | Server-only key (xAI or OpenAI) | empty |
+| `XAI_API_KEY` | Optional alias when `LLM_PROVIDER=xai` | empty |
+| `LLM_BASE_URL` | OpenAI-compatible base URL | empty → `https://api.x.ai/v1` for xai |
 | `CORS_ORIGINS` | Allowed front-end origins | localhost:5173 |
 | `SEED_ON_STARTUP` | Seed demo users/reports | `true` |
 | `VITE_API_BASE_URL` | Front-end API origin (prod) | unset (Vite proxy) |
+
+To switch on Grok after you have a console key:
+
+```bash
+export LLM_PROVIDER=xai
+export LLM_MODEL=grok-4.7
+export LLM_API_KEY=xai-...   # or XAI_API_KEY=...
+export LLM_BASE_URL=https://api.x.ai/v1
+```
+
+If `LLM_PROVIDER=xai` (or `openai`) is set but no key is present, the backend **falls back to mock** so local demos still run.
 
 ## Tests
 
