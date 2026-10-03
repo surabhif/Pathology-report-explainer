@@ -11,6 +11,7 @@ from fastapi import APIRouter, HTTPException
 from app.deps import ClinicianUser, DbDep
 from app.models import Generation, Report, ReviewTask, TaskStatus, utcnow
 from app.schemas import ReviewSubmit, ReviewTaskOut
+from app.services.grounding import annotate_explanation_grounding
 
 router = APIRouter(prefix="/api/review", tags=["review"])
 
@@ -43,7 +44,11 @@ def get_task(task_id: int, db: DbDep, user: ClinicianUser) -> ReviewTaskOut:
         out.cancer_type = report.cancer_type
         out.tcga_barcode = report.tcga_barcode
     out.facts = gen.facts_json
-    out.explanation = gen.explanation_json
+    # Ensure clinician UI sees grounding flags even for older cached generations.
+    explanation = gen.explanation_json or {"sentences": []}
+    if report and report.report_text:
+        explanation = annotate_explanation_grounding(explanation, report.report_text)
+    out.explanation = explanation
     return out
 
 

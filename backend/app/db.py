@@ -60,21 +60,35 @@ def get_db() -> Generator[Session, None, None]:
 
 
 def _ensure_generation_fallback_columns() -> None:
-    """Add fallback-label columns if an older DB was created before they existed.
+    """Add columns if an older DB was created before they existed.
 
     create_all() does not ALTER existing tables; this keeps Neon/Render deploys
-    working without a manual migration step for these four columns.
+    working without a manual migration step for additive Generation columns.
     """
-    ddl = [
+    ddl_sqlite = [
         ("is_fallback", "ALTER TABLE generations ADD COLUMN is_fallback BOOLEAN DEFAULT 0 NOT NULL"),
         ("fallback_reason", "ALTER TABLE generations ADD COLUMN fallback_reason VARCHAR(128)"),
         ("requested_provider", "ALTER TABLE generations ADD COLUMN requested_provider VARCHAR(64)"),
         ("requested_model", "ALTER TABLE generations ADD COLUMN requested_model VARCHAR(128)"),
+        ("explanation_retried", "ALTER TABLE generations ADD COLUMN explanation_retried BOOLEAN DEFAULT 0 NOT NULL"),
+        ("grounding_check_json", "ALTER TABLE generations ADD COLUMN grounding_check_json JSON"),
+    ]
+    ddl_pg = [
+        ("is_fallback", "ALTER TABLE generations ADD COLUMN is_fallback BOOLEAN DEFAULT FALSE NOT NULL"),
+        ("fallback_reason", "ALTER TABLE generations ADD COLUMN fallback_reason VARCHAR(128)"),
+        ("requested_provider", "ALTER TABLE generations ADD COLUMN requested_provider VARCHAR(64)"),
+        ("requested_model", "ALTER TABLE generations ADD COLUMN requested_model VARCHAR(128)"),
+        (
+            "explanation_retried",
+            "ALTER TABLE generations ADD COLUMN explanation_retried BOOLEAN DEFAULT FALSE NOT NULL",
+        ),
+        ("grounding_check_json", "ALTER TABLE generations ADD COLUMN grounding_check_json JSON"),
     ]
     with engine.begin() as conn:
-        existing = {row[1] for row in conn.execute(text("PRAGMA table_info(generations)")).fetchall()} if engine.url.get_backend_name() == "sqlite" else None
-        if existing is None:
-            # Postgres / others: ask information_schema
+        if engine.url.get_backend_name() == "sqlite":
+            existing = {row[1] for row in conn.execute(text("PRAGMA table_info(generations)")).fetchall()}
+            statements = ddl_sqlite
+        else:
             rows = conn.execute(
                 text(
                     "SELECT column_name FROM information_schema.columns "
@@ -82,16 +96,10 @@ def _ensure_generation_fallback_columns() -> None:
                 )
             ).fetchall()
             existing = {r[0] for r in rows}
-        for col, statement in ddl:
+            statements = ddl_pg
+        for col, statement in statements:
             if col not in existing:
-                # Postgres boolean default: use FALSE instead of 0 when not sqlite
-                stmt = statement
-                if engine.url.get_backend_name() != "sqlite" and col == "is_fallback":
-                    stmt = (
-                        "ALTER TABLE generations ADD COLUMN is_fallback "
-                        "BOOLEAN DEFAULT FALSE NOT NULL"
-                    )
-                conn.execute(text(stmt))
+                conn.execute(text(statement))
 
 
 def init_db() -> None:

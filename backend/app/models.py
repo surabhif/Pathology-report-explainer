@@ -124,6 +124,10 @@ class Generation(Base):
     fallback_reason: Mapped[str | None] = mapped_column(String(128), nullable=True)
     requested_provider: Mapped[str | None] = mapped_column(String(64), nullable=True)
     requested_model: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    # True when we re-prompted after detecting unsupported explanation sentences.
+    explanation_retried: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    # Snapshot of unsupported_sentences check (flagged indices/reasons) at save time.
+    grounding_check_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     facts_json: Mapped[dict] = mapped_column(JSON, nullable=False)
     explanation_json: Mapped[dict] = mapped_column(JSON, nullable=False)
     reading_level_original: Mapped[float | None] = mapped_column(Float, nullable=True)

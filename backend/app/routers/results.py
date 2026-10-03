@@ -135,15 +135,15 @@ def _failure_examples(items: list[dict], limit: int = 12) -> list[FailureExample
             )
 
         us = checks.get("unsupported_sentences") or {}
-        unsupported = us.get("unsupported") or us.get("unsupported_indices") or []
-        if unsupported:
+        flagged = us.get("flagged") or us.get("unsupported") or []
+        if flagged or us.get("unsupported_count"):
             examples.append(
                 FailureExample(
                     generation_id=gid,
                     report_id=rid,
                     cancer_type=ct,
                     check_name="unsupported_sentences",
-                    detail=f"indices/details: {unsupported}",
+                    detail=f"count={us.get('unsupported_count')} flagged={flagged}",
                 )
             )
 

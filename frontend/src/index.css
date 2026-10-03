@@ -498,6 +498,41 @@ button {
   background: #fff1f2;
 }
 
+.sentence.ungrounded {
+  border-left-color: #b45309;
+  background: #fffbeb;
+  opacity: 0.95;
+}
+
+.sentence.ungrounded.active,
+.sentence.ungrounded:hover {
+  background: #fef3c7;
+  border-left-color: #b45309;
+}
+
+.sentence-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.35rem;
+}
+
+.sentence-text {
+  display: block;
+}
+
+.ungrounded-badge {
+  display: inline-block;
+  margin-top: 0.35rem;
+  padding: 0.12rem 0.45rem;
+  border-radius: 4px;
+  font-size: 0.72rem;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: #92400e;
+  background: #fde68a;
+}
+
 .reading-level {
   display: flex;
   flex-wrap: wrap;

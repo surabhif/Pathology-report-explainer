@@ -108,6 +108,8 @@ async def run_explain_pipeline(db: Session, report: Report, *, use_cache: bool =
         fallback_reason=fallback_reason,
         requested_provider=requested_provider if used_fallback else None,
         requested_model=requested_model if used_fallback else None,
+        explanation_retried=bool(explain_res.retried),
+        grounding_check_json=explain_res.grounding_check or None,
         facts_json=extract_res.facts.model_dump(),
         explanation_json=explain_res.explanation.model_dump(),
         reading_level_original=rl_orig,
@@ -214,5 +216,7 @@ async def explain_report(
         fallback_reason=gen.fallback_reason,
         requested_provider=gen.requested_provider,
         requested_model=gen.requested_model,
+        explanation_retried=bool(gen.explanation_retried),
+        grounding_check=gen.grounding_check_json,
         glossary=_glossary_for_text(report.report_text, expl_text),
     )

@@ -110,27 +110,33 @@ def unsupported_sentences(
     explanation: dict[str, Any],
     report_text: str,
 ) -> dict[str, Any]:
-    """Flag sentences that lack source_fact_keys or whose quote is not found in the report."""
+    """Flag sentences with empty quotes or quotes not found word-for-word in the report.
+
+    Also flags missing source_fact_keys. Results are stored on auto-check runs and
+    mirrored into each sentence's ``grounding`` metadata when annotations are applied.
+    """
+    from app.services.grounding import assess_sentence_grounding
+
     sentences = explanation.get("sentences") or []
     flagged: list[dict[str, Any]] = []
+    unsupported_indices: list[int] = []
     for i, s in enumerate(sentences):
-        keys = s.get("source_fact_keys") or []
-        quote = s.get("quote")
-        reasons: list[str] = []
-        if not keys:
-            reasons.append("missing_source_fact_keys")
-        if quote:
-            if quote not in report_text and quote.lower() not in report_text.lower():
-                reasons.append("quote_not_in_report")
-        else:
-            # Allow empty quote only if no keys either — still flag
-            if keys:
-                reasons.append("missing_quote")
+        reasons = assess_sentence_grounding(s, report_text)
         if reasons:
-            flagged.append({"index": i, "sentence": s.get("sentence"), "reasons": reasons})
+            unsupported_indices.append(i)
+            flagged.append(
+                {
+                    "index": i,
+                    "sentence": s.get("sentence"),
+                    "quote": s.get("quote"),
+                    "reasons": reasons,
+                }
+            )
     return {
         "total_sentences": len(sentences),
         "flagged": flagged,
+        "unsupported": flagged,  # alias for dashboard / CSV consumers
+        "unsupported_indices": unsupported_indices,
         "unsupported_count": len(flagged),
         "support_rate": ((len(sentences) - len(flagged)) / len(sentences)) if sentences else 1.0,
         "pass": len(flagged) == 0,

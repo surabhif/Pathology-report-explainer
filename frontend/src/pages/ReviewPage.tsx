@@ -189,8 +189,13 @@ export function ReviewPage() {
                   <h3 className="section-title" style={{ fontSize: '1.05rem' }}>
                     Explanation
                   </h3>
+                  <p className="muted">
+                    Amber sentences lack a source quote found word-for-word in the report — treat
+                    them as unsupported, not evidence-backed.
+                  </p>
                   <ExplanationPanel
                     explanation={explanation}
+                    reportText={task.report_text || ''}
                     activeIndex={activeSentence}
                     flagged={flagged}
                     onSelect={(i, quote) => {

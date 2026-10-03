@@ -47,6 +47,8 @@ class ExplanationSentence(BaseModel):
     sentence: str
     source_fact_keys: list[str] = Field(default_factory=list)
     quote: str | None = None
+    # Populated after generation — empty/not-in-report quotes are not "ok".
+    grounding: dict[str, Any] | None = None
 
 
 class ExplanationPayload(BaseModel):
@@ -122,6 +124,10 @@ class ExplainResponse(BaseModel):
     fallback_reason: str | None = None
     requested_provider: str | None = None
     requested_model: str | None = None
+    # True when the explainer re-asked the model after unsupported sentences.
+    explanation_retried: bool = False
+    # Snapshot of unsupported_sentences check at generation time.
+    grounding_check: dict[str, Any] | None = None
     # Glossary terms relevant to this explanation (optional enrichment).
     glossary: list[dict[str, Any]] = Field(default_factory=list)
 

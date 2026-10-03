@@ -185,6 +185,18 @@ export function HomePage() {
                   evaluation sample.
                 </div>
               )}
+              {result.explanation_retried && (
+                <div className="muted" role="status">
+                  Explainer retried once after unsupported sentences (empty or non-verbatim quotes).
+                </div>
+              )}
+              {(result.grounding_check?.unsupported_count ?? 0) > 0 && (
+                <div className="error-text" role="status">
+                  {result.grounding_check?.unsupported_count} sentence
+                  {(result.grounding_check?.unsupported_count ?? 0) === 1 ? '' : 's'} still lack a
+                  source quote found word-for-word in the report (marked below).
+                </div>
+              )}
             </div>
             <div className="explain-layout">
               <div className="panel">
@@ -212,6 +224,7 @@ export function HomePage() {
                   <h3 className="section-title">Plain-language explanation</h3>
                   <ExplanationPanel
                     explanation={result.explanation}
+                    reportText={result.report_text}
                     activeIndex={activeSentence}
                     onSelect={onSentenceSelect}
                   />

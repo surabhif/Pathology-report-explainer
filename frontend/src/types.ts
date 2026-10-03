@@ -28,6 +28,7 @@ export interface ExplanationSentence {
   sentence: string
   source_fact_keys: string[]
   quote: string | null
+  grounding?: { ok: boolean; reasons: string[] } | null
 }
 
 export interface ExplanationPayload {
@@ -81,6 +82,13 @@ export interface ExplainResponse {
   fallback_reason?: string | null
   requested_provider?: string | null
   requested_model?: string | null
+  explanation_retried?: boolean
+  grounding_check?: {
+    unsupported_count?: number
+    support_rate?: number
+    pass?: boolean
+    flagged?: Array<{ index: number; reasons: string[]; sentence?: string }>
+  } | null
   glossary?: GlossaryTerm[]
 }
 
