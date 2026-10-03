@@ -55,6 +55,7 @@ def test_xai_provider_uses_sensible_defaults():
     assert provider.provider_id() == "xai"
     assert provider.model_id() == XAI_DEFAULT_MODEL
     assert provider._base_url == XAI_DEFAULT_BASE_URL
+    assert provider._timeout == 120.0
 
 
 def test_xai_provider_respects_custom_model_and_base_url():
@@ -126,7 +127,7 @@ async def test_openai_compatible_posts_json_object_to_xai_endpoint():
     assert args[0] == "https://api.x.ai/v1/chat/completions"
     assert kwargs["headers"]["Authorization"] == "Bearer secret-xai"
     body = kwargs["json"]
-    assert body["model"] == "grok-4.7"
+    assert body["model"] == XAI_DEFAULT_MODEL
     assert body["response_format"] == {"type": "json_object"}
     assert body["messages"][0]["role"] == "system"
     assert body["messages"][1]["role"] == "user"

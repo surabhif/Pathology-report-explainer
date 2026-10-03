@@ -6,7 +6,6 @@ import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from slowapi import Limiter
-from slowapi.util import get_remote_address
 from sqlalchemy.orm import Session
 
 from app.config import get_settings
@@ -24,13 +23,15 @@ from app.schemas import (
 from app.services.explanation import generate_explanation
 from app.services.extraction import extract_facts
 from app.services.glossary import load_glossary
+from app.services.llm.errors import LLMServiceError
 from app.services.llm.factory import get_llm_provider
+from app.services.rate_limit import client_ip_key
 from app.services.reading_level import explanation_text_from_payload, flesch_kincaid_grade
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/public", tags=["public"])
 
-limiter = Limiter(key_func=get_remote_address)
+limiter = Limiter(key_func=client_ip_key)
 
 
 def _active_prompt_tag(db: Session, kind: str) -> str:
@@ -46,20 +47,27 @@ def _active_prompt_tag(db: Session, kind: str) -> str:
 
 
 async def run_explain_pipeline(db: Session, report: Report, *, use_cache: bool = True) -> Generation:
-    """Extract + explain, caching Generation rows by report/provider/model/prompts."""
+    """Extract + explain, caching Generation rows by report/provider/model/prompts.
+
+    Fallback generations are stored with provider=mock and is_fallback=True so
+    research evaluation never misattributes heuristic output to a hosted model.
+    """
     provider = get_llm_provider()
     extract_tag = _active_prompt_tag(db, "extract")
     explain_tag = _active_prompt_tag(db, "explain")
+    requested_provider = provider.provider_id()
+    requested_model = provider.model_id()
 
     if use_cache:
         cached = (
             db.query(Generation)
             .filter(
                 Generation.report_id == report.id,
-                Generation.provider == provider.provider_id(),
-                Generation.model == provider.model_id(),
+                Generation.provider == requested_provider,
+                Generation.model == requested_model,
                 Generation.prompt_extract_version == extract_tag,
                 Generation.prompt_explain_version == explain_tag,
+                Generation.is_fallback.is_(False),
             )
             .order_by(Generation.id.desc())
             .first()
@@ -70,21 +78,38 @@ async def run_explain_pipeline(db: Session, report: Report, *, use_cache: bool =
     # PHI: log ids/lengths only — never full report text
     logger.info("public.explain report_id=%s chars=%d", report.id, len(report.report_text))
 
-    facts, _ = await extract_facts(report.report_text, provider, prompt_name="extract_v1.txt")
-    explanation, _ = await generate_explanation(
-        report.report_text, facts, provider, prompt_name="explain_v1.txt"
+    extract_res = await extract_facts(report.report_text, provider, prompt_name="extract_v1.txt")
+    explain_res = await generate_explanation(
+        report.report_text,
+        extract_res.facts,
+        provider,
+        prompt_name="explain_v1.txt",
+        force_heuristic=extract_res.used_fallback,
     )
+
+    used_fallback = extract_res.used_fallback or explain_res.used_fallback
+    fallback_reason = extract_res.fallback_reason or explain_res.fallback_reason
+    # Honest labeling: fallback output is mock, not the requested hosted model.
+    stored_provider = "mock" if used_fallback else requested_provider
+    stored_model = "mock-heuristic-v1" if used_fallback else requested_model
+
     rl_orig = flesch_kincaid_grade(report.report_text)
-    rl_expl = flesch_kincaid_grade(explanation_text_from_payload(explanation.model_dump()))
+    rl_expl = flesch_kincaid_grade(
+        explanation_text_from_payload(explain_res.explanation.model_dump())
+    )
 
     gen = Generation(
         report_id=report.id,
         prompt_extract_version=extract_tag,
         prompt_explain_version=explain_tag,
-        model=provider.model_id(),
-        provider=provider.provider_id(),
-        facts_json=facts.model_dump(),
-        explanation_json=explanation.model_dump(),
+        model=stored_model,
+        provider=stored_provider,
+        is_fallback=used_fallback,
+        fallback_reason=fallback_reason,
+        requested_provider=requested_provider if used_fallback else None,
+        requested_model=requested_model if used_fallback else None,
+        facts_json=extract_res.facts.model_dump(),
+        explanation_json=explain_res.explanation.model_dump(),
         reading_level_original=rl_orig,
         reading_level_explanation=rl_expl,
     )
@@ -163,7 +188,15 @@ async def explain_report(
     report = db.query(Report).filter(Report.id == report_id).first()
     if not report:
         raise HTTPException(404, "Report not found")
-    gen = await run_explain_pipeline(db, report)
+    try:
+        gen = await run_explain_pipeline(db, report)
+    except LLMServiceError as exc:
+        # Clear, UI-displayable error — not a generic 500.
+        status = 504 if exc.code == "llm_timeout" else 502
+        raise HTTPException(
+            status_code=status,
+            detail={"message": exc.message, "code": exc.code},
+        ) from exc
     facts = FactSheet.model_validate(gen.facts_json)
     explanation = ExplanationPayload.model_validate(gen.explanation_json)
     expl_text = " ".join(s.sentence for s in explanation.sentences)
@@ -177,5 +210,9 @@ async def explain_report(
         reading_level_explanation=gen.reading_level_explanation,
         provider=gen.provider,
         model=gen.model,
+        is_fallback=bool(gen.is_fallback),
+        fallback_reason=gen.fallback_reason,
+        requested_provider=gen.requested_provider,
+        requested_model=gen.requested_model,
         glossary=_glossary_for_text(report.report_text, expl_text),
     )

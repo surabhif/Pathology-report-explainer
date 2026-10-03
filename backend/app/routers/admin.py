@@ -194,11 +194,28 @@ def run_auto_checks(body: AutoCheckRequest, db: DbDep, _admin: AdminUser) -> dic
         gold_by_report[task.report_id] = task.gold_labels  # type: ignore[assignment]
 
     per_gen = []
+    fallback_gen = []
     prompt_tags: set[str] = set()
     model_tags: set[str] = set()
     for gen in generations:
         report = db.query(Report).filter(Report.id == gen.report_id).first()
         if not report:
+            continue
+        entry = {
+            "generation_id": gen.id,
+            "report_id": report.id,
+            "cancer_type": report.cancer_type,
+            "provider": gen.provider,
+            "model": gen.model,
+            "is_fallback": bool(gen.is_fallback),
+            "fallback_reason": gen.fallback_reason,
+            "requested_provider": gen.requested_provider,
+            "requested_model": gen.requested_model,
+        }
+        # Evaluation integrity: fallback (heuristic) generations are tracked
+        # separately and excluded from primary automatic-check metrics.
+        if gen.is_fallback:
+            fallback_gen.append(entry)
             continue
         checks = run_all_checks(
             facts=gen.facts_json,
@@ -208,21 +225,21 @@ def run_auto_checks(body: AutoCheckRequest, db: DbDep, _admin: AdminUser) -> dic
             gdc_metadata=report.gdc_metadata,
             cancer_type=report.cancer_type,
         )
-        per_gen.append(
-            {
-                "generation_id": gen.id,
-                "report_id": report.id,
-                "cancer_type": report.cancer_type,
-                "checks": checks,
-            }
-        )
+        entry["checks"] = checks
+        per_gen.append(entry)
         prompt_tags.add(f"{gen.prompt_extract_version}+{gen.prompt_explain_version}")
         model_tags.add(f"{gen.provider}:{gen.model}")
 
     run = AutoCheckRun(
         batch_id=body.batch_id,
         generation_ids=[g.id for g in generations],
-        results_json={"per_generation": per_gen, "count": len(per_gen)},
+        results_json={
+            "per_generation": per_gen,
+            "count": len(per_gen),
+            "fallback_generations": fallback_gen,
+            "fallback_count": len(fallback_gen),
+            "excluded_fallbacks_from_metrics": True,
+        },
         prompt_tags=",".join(sorted(prompt_tags)),
         model_tags=",".join(sorted(model_tags)),
         created_at=utcnow(),
@@ -230,5 +247,15 @@ def run_auto_checks(body: AutoCheckRequest, db: DbDep, _admin: AdminUser) -> dic
     db.add(run)
     db.commit()
     db.refresh(run)
-    logger.info("auto_checks.completed run_id=%s n=%d", run.id, len(per_gen))
-    return {"run_id": run.id, "count": len(per_gen), "results": run.results_json}
+    logger.info(
+        "auto_checks.completed run_id=%s n=%d fallbacks_excluded=%d",
+        run.id,
+        len(per_gen),
+        len(fallback_gen),
+    )
+    return {
+        "run_id": run.id,
+        "count": len(per_gen),
+        "fallback_count": len(fallback_gen),
+        "results": run.results_json,
+    }

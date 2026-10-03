@@ -212,33 +212,94 @@ SAMPLE_REPORTS = [
     },
 ]
 
-DEMO_USERS = [
+DEMO_USER_TEMPLATES = [
     {
         "email": "surabhi@example.com",
         "name": "Surabhi Admin",
         "role": "admin",
-        "invite_token": "DEMO_ADMIN_TOKEN",
+        "token_attr": "demo_admin_token",
+        "local_default": "DEMO_ADMIN_TOKEN",
     },
     {
         "email": "annotator@example.com",
         "name": "Demo Annotator",
         "role": "annotator",
-        "invite_token": "DEMO_ANNOTATOR_TOKEN",
+        "token_attr": "demo_annotator_token",
+        "local_default": "DEMO_ANNOTATOR_TOKEN",
     },
     {
         "email": "clinician@example.com",
         "name": "Demo Clinician",
         "role": "clinician",
-        "invite_token": "DEMO_CLINICIAN_TOKEN",
+        "token_attr": "demo_clinician_token",
+        "local_default": "DEMO_CLINICIAN_TOKEN",
     },
 ]
 
 
+def _resolve_demo_users() -> list[dict] | None:
+    """Build demo user seed rows from env, or skip in production without tokens.
+
+    - If DEMO_*_TOKEN env vars are set, use those values.
+    - In production/prod: never seed the well-known DEMO_* defaults; skip if unset.
+    - In development: fall back to local convenience defaults for one-command demos.
+    """
+    settings = get_settings()
+    from_env: list[dict] = []
+    missing = 0
+    for tmpl in DEMO_USER_TEMPLATES:
+        token = getattr(settings, tmpl["token_attr"], "").strip()
+        if token:
+            from_env.append(
+                {
+                    "email": tmpl["email"],
+                    "name": tmpl["name"],
+                    "role": tmpl["role"],
+                    "invite_token": token,
+                }
+            )
+        else:
+            missing += 1
+
+    if from_env and missing == 0:
+        return from_env
+
+    if from_env and missing:
+        logger.warning(
+            "seed.demo_tokens partial: set all of DEMO_ADMIN_TOKEN, "
+            "DEMO_ANNOTATOR_TOKEN, DEMO_CLINICIAN_TOKEN — skipping demo users"
+        )
+        return None
+
+    if settings.is_production:
+        logger.info(
+            "seed.demo_users skipped in production (set DEMO_*_TOKEN env vars to seed)"
+        )
+        return None
+
+    # Local / test convenience defaults — never used when APP_ENV=production.
+    return [
+        {
+            "email": t["email"],
+            "name": t["name"],
+            "role": t["role"],
+            "invite_token": t["local_default"],
+        }
+        for t in DEMO_USER_TEMPLATES
+    ]
+
+
 def _seed_users(db: Session) -> dict[str, User]:
+    specs = _resolve_demo_users()
+    if not specs:
+        return {}
     by_role: dict[str, User] = {}
-    for u in DEMO_USERS:
+    for u in specs:
         existing = db.query(User).filter(User.email == u["email"]).first()
         if existing:
+            # Keep invite token in sync with env when re-seeding.
+            if u.get("invite_token") and existing.invite_token != u["invite_token"]:
+                existing.invite_token = u["invite_token"]
             by_role[u["role"]] = existing
             continue
         user = User(**u)
@@ -386,5 +447,8 @@ async def seed_all(db: Session) -> None:
     _seed_prompts(db)
     _seed_rubric(db)
     reports = _seed_reports(db)
-    await _seed_batches_and_generations(db, users, reports)
+    if users.get("annotator") and users.get("clinician"):
+        await _seed_batches_and_generations(db, users, reports)
+    else:
+        logger.info("seed.batches skipped (demo annotator/clinician not seeded)")
     logger.info("seed.done users=%d reports=%d", len(users), len(reports))

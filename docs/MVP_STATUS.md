@@ -11,7 +11,8 @@
 - Auto-checks: field accuracy vs gold, TCGA metadata agreement, number grounding, unsupported sentences, reading level
 - Results dashboard: metrics + 95% CIs, per-field / per-cancer, clinician scores, inter-rater when multi-rated, failures, CSV export
 - Version tags on generations (prompt + model/provider)
-- Mock LLM provider (default) + **xAI Grok** (`LLM_PROVIDER=xai` → `https://api.x.ai/v1`, default `grok-4.7`) + OpenAI-compatible interface
+- Mock LLM provider (default) + **xAI Grok** (`LLM_PROVIDER=xai` → `https://api.x.ai/v1`, default `grok-4.20-0309-non-reasoning`) + OpenAI-compatible interface
+- Honest fallback labeling (`is_fallback`); primary eval metrics exclude fallbacks
 - Seed data, sample TCGA JSON, download/import script
 - Tests (backend 30, frontend smoke), GitHub Actions CI
 - Docs: README, DESIGN, DEPLOY, ABOUT/model card

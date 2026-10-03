@@ -23,7 +23,7 @@ A college-application research project by **Surabhi Fadnavis** (aspiring surgica
 - **Frontend:** React + TypeScript (Vite)
 - **Backend:** Python FastAPI — LLM API keys never reach the browser
 - **Default LLM:** deterministic **mock** provider (no API key required)
-- **Hosted LLM (chosen for this project):** **xAI Grok** via `LLM_PROVIDER=xai` → `https://api.x.ai/v1` (OpenAI-compatible); default model `grok-4.7` (structured/JSON output). Model id is always overridable with `LLM_MODEL`.
+- **Hosted LLM (chosen for this project):** **xAI Grok** via `LLM_PROVIDER=xai` → `https://api.x.ai/v1` (OpenAI-compatible); default model `grok-4.20-0309-non-reasoning` (fast structured/JSON). Model id is always overridable with `LLM_MODEL` (e.g. `grok-4.7`).
 - **Data:** TCGA-Reports (Kefeli et al., Patterns 2024); small sample committed under `data/`
 
 ## Quick start (mock provider)
@@ -84,24 +84,29 @@ See [`.env.example`](.env.example). Important ones:
 |----------|---------|---------------|
 | `DATABASE_URL` | Postgres or SQLite | SQLite file in `backend/` |
 | `LLM_PROVIDER` | `mock`, `xai`, or `openai` | `mock` |
-| `LLM_MODEL` | Model id | `mock-heuristic-v1` (local); for xAI use `grok-4.7` |
+| `LLM_MODEL` | Model id | `mock-heuristic-v1` (local); for xAI default `grok-4.20-0309-non-reasoning` |
+| `LLM_TIMEOUT_SECONDS` | Hosted LLM HTTP timeout | `120` |
 | `LLM_API_KEY` | Server-only key (xAI or OpenAI) | empty |
 | `XAI_API_KEY` | Optional alias when `LLM_PROVIDER=xai` | empty |
 | `LLM_BASE_URL` | OpenAI-compatible base URL | empty → `https://api.x.ai/v1` for xai |
+| `APP_ENV` | `development` / `production` | `development` |
+| `DEMO_ADMIN_TOKEN` / `DEMO_ANNOTATOR_TOKEN` / `DEMO_CLINICIAN_TOKEN` | Invite tokens for seeded demo users | local defaults only outside production |
+| `TRUST_PROXY_HEADERS` | Use `X-Forwarded-For` for rate limits | `false` |
 | `CORS_ORIGINS` | Allowed front-end origins | localhost:5173 |
-| `SEED_ON_STARTUP` | Seed demo users/reports | `true` |
+| `SEED_ON_STARTUP` | Seed demo reports/prompts | `true` |
 | `VITE_API_BASE_URL` | Front-end API origin (prod) | unset (Vite proxy) |
 
 To switch on Grok after you have a console key:
 
 ```bash
 export LLM_PROVIDER=xai
-export LLM_MODEL=grok-4.7
+export LLM_MODEL=grok-4.20-0309-non-reasoning
 export LLM_API_KEY=xai-...   # or XAI_API_KEY=...
 export LLM_BASE_URL=https://api.x.ai/v1
+export LLM_TIMEOUT_SECONDS=120
 ```
 
-If `LLM_PROVIDER=xai` (or `openai`) is set but no key is present, the backend **falls back to mock** so local demos still run.
+If `LLM_PROVIDER=xai` (or `openai`) is set but no key is present, the backend **falls back to mock** so local demos still run. Invalid hosted-model JSON is labeled as heuristic fallback (`is_fallback`), never as xAI output.
 
 ## Tests
 

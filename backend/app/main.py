@@ -59,8 +59,8 @@ def create_app() -> FastAPI:
         title="Pathology Report Explainer MVP",
         description=(
             "Extract structured pathology facts and generate grounded plain-language "
-            "explanations with evaluation checks. Demo invite tokens: "
-            "DEMO_ADMIN_TOKEN, DEMO_ANNOTATOR_TOKEN, DEMO_CLINICIAN_TOKEN."
+            "explanations with evaluation checks. Local demo invite tokens are seeded "
+            "only outside production (or when DEMO_*_TOKEN env vars are set)."
         ),
         version="0.1.0",
         lifespan=lifespan,

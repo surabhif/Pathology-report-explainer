@@ -117,6 +117,11 @@ class ExplainResponse(BaseModel):
     # included for demo transparency on public explain.
     provider: str | None = None
     model: str | None = None
+    # Honest fallback labeling (heuristic used after hosted-model validation failure).
+    is_fallback: bool = False
+    fallback_reason: str | None = None
+    requested_provider: str | None = None
+    requested_model: str | None = None
     # Glossary terms relevant to this explanation (optional enrichment).
     glossary: list[dict[str, Any]] = Field(default_factory=list)
 
@@ -300,6 +305,9 @@ class ResultsSummary(BaseModel):
     clinician_scores: ClinicianScoreSummary | None = None
     inter_rater: InterRaterSummary | None = None
     failure_examples: list[FailureExample] = Field(default_factory=list)
+    # Fallback generations are excluded from primary metrics; counted separately.
+    fallback_generations: int = 0
+    fallback_excluded_from_metrics: bool = True
 
 
 class AboutOut(BaseModel):

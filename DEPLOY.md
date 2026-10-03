@@ -1,105 +1,104 @@
 # Deploy guide (PathExplain)
 
-You do **not** need deploy credentials to develop. This document is the checklist for when you are ready to host.
+Public demo (no secrets):
+
+| Piece | Host |
+|-------|------|
+| Front end | [Vercel](https://pathology-report-explainer.vercel.app) |
+| API | [Render](https://pathology-report-explainer-api.onrender.com) |
+| Database | Neon Postgres |
+
+You do **not** need deploy credentials to develop locally. This document is the checklist for the live stack above.
 
 ## Recommended shape
 
 | Piece | Where |
 |-------|--------|
-| React front end | **Vercel** (this repo’s `frontend/`) |
-| FastAPI back end | **Vercel Python serverless** *or* a small always-on host (Railway / Render / Fly) |
-| Database | **Neon** or **Supabase** Postgres (`DATABASE_URL`) |
-| LLM | **xAI Grok** (OpenAI-compatible at `https://api.x.ai/v1`) via `LLM_API_KEY` / `XAI_API_KEY` on the **server only** |
+| React front end | **Vercel** — project root directory `frontend/` |
+| FastAPI back end | **Render** Web Service — root directory `backend/` |
+| Database | **Neon** Postgres (`DATABASE_URL`) |
+| LLM | **xAI Grok** via OpenAI-compatible `https://api.x.ai/v1` (`LLM_API_KEY` on Render only) |
 
+## Neon (Postgres)
 
-### Why the backend may leave Vercel
+1. Create a Neon project and copy the connection string.
+2. Use the SQLAlchemy form with the psycopg v3 driver (required; see `requirements.txt`):
 
-FastAPI + SQLAlchemy + longer LLM calls fit poorly on short serverless timeouts. For the research pilot, a small Railway/Render/Fly service is often simpler. The repo still includes `frontend/vercel.json` and `api/` notes for a Vercel-centric option.
+   `postgresql+psycopg://USER:PASSWORD@HOST/DBNAME?sslmode=require`
 
-## Environment variables to set
+3. Set that value as `DATABASE_URL` on Render. Do not commit the real DSN.
+4. The API uses SQLAlchemy `pool_pre_ping=True` so Neon’s ~5-minute idle disconnect does not break the next request.
 
-### Backend
+## Render (API)
+
+### Service settings
+
+| Setting | Value |
+|---------|--------|
+| Root Directory | `backend` |
+| Runtime | Python |
+| **`PYTHON_VERSION`** | **`3.12.3`** (Render env var / runtime pin) |
+| Build Command | `pip install -r requirements.txt` |
+| Start Command | `uvicorn app.main:app --host 0.0.0.0 --port $PORT` |
+| Auto-Deploy | **Off** (manual deploy from the merged/main commit you trust) |
+
+Health check path: `/api/health` → `{"ok": true, "provider": …}`.
+
+### Backend environment variables (Render)
 
 | Name | Required | Notes |
 |------|----------|-------|
-| `DATABASE_URL` | Yes (prod) | Postgres DSN, e.g. Neon `postgresql+psycopg://…?sslmode=require` |
-| `LLM_PROVIDER` | Yes | `mock` until you add a key; then **`xai`** (or `openai`) |
-| `LLM_MODEL` | Yes for hosted | **`grok-4.7`** for xAI (structured/JSON capable; override anytime) |
-| `LLM_API_KEY` | For real LLM | xAI key from [console.x.ai](https://console.x.ai) — **Never** put in `VITE_*` |
-| `XAI_API_KEY` | Optional | Alias accepted when `LLM_PROVIDER=xai` |
-| `LLM_BASE_URL` | Optional | For xAI: `https://api.x.ai/v1` (applied automatically if omitted / OpenAI leftover) |
-| `CORS_ORIGINS` | Yes | Your Vercel URL, e.g. `https://pathexplain.vercel.app` |
-| `SEED_ON_STARTUP` | Optional | `true` once to seed demo users; then `false` |
+| `DATABASE_URL` | Yes | Neon `postgresql+psycopg://…?sslmode=require` |
+| `APP_ENV` | Yes (prod) | Set to `production` so known `DEMO_*` defaults are **never** seeded |
+| `CORS_ORIGINS` | Yes | `https://pathology-report-explainer.vercel.app` |
+| `TRUST_PROXY_HEADERS` | Yes (prod) | `true` on Render so rate limits use `X-Forwarded-For` |
+| `LLM_PROVIDER` | Yes | `xai` (or `mock` without a key) |
+| `LLM_MODEL` | Recommended | Default if unset for xAI: **`grok-4.20-0309-non-reasoning`** (fast). Override e.g. `grok-4.7` if you accept longer latency |
+| `LLM_API_KEY` | For xAI | From [console.x.ai](https://console.x.ai) — **never** in `VITE_*` |
+| `XAI_API_KEY` | Optional | Alias when `LLM_PROVIDER=xai` |
+| `LLM_BASE_URL` | Optional | `https://api.x.ai/v1` |
+| `LLM_TIMEOUT_SECONDS` | Optional | Default `120`. Raise if you use a slow reasoning model |
+| `SEED_ON_STARTUP` | Optional | `true` to seed sample reports/prompts; demo **users** only if `DEMO_*_TOKEN` set |
+| `DEMO_ADMIN_TOKEN` | Optional | If unset in production, demo admin is **not** seeded |
+| `DEMO_ANNOTATOR_TOKEN` | Optional | Same |
+| `DEMO_CLINICIAN_TOKEN` | Optional | Same |
 | `RATE_LIMIT_EXPLAIN` | Optional | e.g. `30/minute` |
 
-### Frontend (Vercel)
+Invite clinicians from the Admin UI when demo tokens are not used.
 
-| Name | Required | Notes |
-|------|----------|-------|
-| `VITE_API_BASE_URL` | Yes (if API is separate origin) | e.g. `https://pathexplain-api.up.railway.app` |
+## Vercel (front end)
 
-## Step-by-step
-
-### 1. Create Postgres
-
-1. Create a Neon or Supabase project.
-2. Copy the connection string into `DATABASE_URL`.
-3. Prefer the SQLAlchemy URL form: `postgresql+psycopg://…`
-
-### 2. Deploy the API
-
-**Option A — Railway / Render / Fly**
-
-1. Root or `backend/` as the service directory.
-2. Start command: `uvicorn app.main:app --host 0.0.0.0 --port $PORT` (set `working directory` to `backend`).
-3. Set the backend env vars above.
-4. Hit `GET /api/health` — expect `{"ok": true, …}`.
-
-**Option B — Vercel serverless (experimental)**
-
-1. Use the root `vercel.json` that builds the frontend and exposes Python under `/api`.
-2. Expect cold starts and timeout limits; keep `LLM_PROVIDER=mock` until you confirm timeouts.
-
-### 3. Deploy the frontend on Vercel
-
-1. Import this GitHub repo in Vercel.
-2. Root directory: `frontend`
+1. Import this GitHub repo.
+2. **Root Directory:** `frontend`
 3. Build: `npm run build` · Output: `dist`
-4. Set `VITE_API_BASE_URL` to the public API origin (no trailing slash).
-5. Redeploy after env changes (Vite inlines env at build time).
+4. Env: `VITE_API_BASE_URL=https://pathology-report-explainer-api.onrender.com` (no trailing slash)
+5. Redeploy after changing `VITE_*` (inlined at build time).
+6. SPA routing: `frontend/vercel.json` rewrites non-asset paths to `/index.html` so `/login` and `/admin` work on refresh.
 
-### 4. Seed & first login
+## Local development
 
-1. With `SEED_ON_STARTUP=true`, restart the API once.
-2. Open the site → Login → redeem `DEMO_ADMIN_TOKEN` (change/disable demo tokens before any public launch).
-3. Invite real clinicians from Admin (generates invite tokens).
+```bash
+cd backend && python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+uvicorn app.main:app --reload --port 8000
 
-### 5. Flip on xAI Grok
+cd frontend && npm install && npm run dev
+```
 
-1. Create an API key at [console.x.ai](https://console.x.ai).
-2. Set on the **API service only**:
-   - `LLM_PROVIDER=xai`
-   - `LLM_MODEL=grok-4.7` (or another current Grok text model; must support structured/JSON output)
-   - `LLM_API_KEY=…` (or `XAI_API_KEY=…`)
-   - `LLM_BASE_URL=https://api.x.ai/v1`
-3. Restart the API. Generations are tagged with `provider=xai` and the model id for version comparison.
-4. If the key is missing, the app falls back to the mock provider so the site still boots.
+With `APP_ENV=development` (default) and no `DEMO_*_TOKEN` overrides, local seed uses convenience tokens `DEMO_ADMIN_TOKEN` / `DEMO_ANNOTATOR_TOKEN` / `DEMO_CLINICIAN_TOKEN`.
 
-(OpenAI remains available via `LLM_PROVIDER=openai` if needed.)
+## LLM notes (xAI)
 
-## Accounts needed
-
-1. **GitHub** — this repo  
-2. **Vercel** — frontend (and optionally API)  
-3. **Neon or Supabase** — Postgres  
-4. **LLM provider** — **xAI** API key (preferred); OpenAI also works via the same interface  
-5. Optional: **Railway/Render/Fly** — if API is not on Vercel  
+- Preferred default model for this app: **`grok-4.20-0309-non-reasoning`** (~few seconds, structured JSON).
+- `grok-4.7` can take well over a minute with large reasoning traces; if you use it, raise `LLM_TIMEOUT_SECONDS` (e.g. 180+).
+- Timeouts and network errors return **502/504** with a clear `detail.message` for the UI — not a bare 500.
+- If the hosted model returns invalid JSON/schema, the app may use heuristic output but labels it as **`provider=mock`**, `is_fallback=true`, and excludes those rows from primary evaluation metrics.
 
 ## Security checklist
 
 - [ ] No secrets in git  
-- [ ] `LLM_API_KEY` only on server  
-- [ ] Rotate / remove `DEMO_*` tokens before wide sharing  
-- [ ] CORS limited to your front-end origin  
+- [ ] `LLM_API_KEY` only on Render  
+- [ ] `APP_ENV=production` and no known default demo tokens unless you set unique `DEMO_*_TOKEN` values  
+- [ ] `CORS_ORIGINS` limited to the Vercel origin  
+- [ ] `TRUST_PROXY_HEADERS=true` only behind Render (or another trusted proxy)  
 - [ ] Banner remains: research demo, not for clinical use  
-- [ ] Do not add a free-text paste box for real reports without IRB/ethics review  

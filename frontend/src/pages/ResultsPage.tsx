@@ -114,7 +114,11 @@ export function ResultsPage() {
           <div className="admin-grid">
             <div className="panel">
               <div className="stat">{data.generations}</div>
-              <div className="muted">Generations</div>
+              <div className="muted">Generations (non-fallback)</div>
+            </div>
+            <div className="panel">
+              <div className="stat">{data.fallback_generations ?? 0}</div>
+              <div className="muted">Fallback generations (excluded)</div>
             </div>
             <div className="panel">
               <div className="stat">{data.gold_annotations}</div>
@@ -129,6 +133,13 @@ export function ResultsPage() {
               <div className="muted">Auto-check runs</div>
             </div>
           </div>
+
+          {data.fallback_excluded_from_metrics !== false && (
+            <p className="muted">
+              Primary metrics exclude heuristic fallback generations so research results are not
+              mislabeled as hosted-model output.
+            </p>
+          )}
 
           <div className="panel">
             <h2 className="section-title" style={{ fontSize: '1.1rem' }}>

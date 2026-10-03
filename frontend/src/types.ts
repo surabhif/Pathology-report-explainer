@@ -77,6 +77,10 @@ export interface ExplainResponse {
   reading_level_explanation: number | null
   provider?: string | null
   model?: string | null
+  is_fallback?: boolean
+  fallback_reason?: string | null
+  requested_provider?: string | null
+  requested_model?: string | null
   glossary?: GlossaryTerm[]
 }
 
@@ -183,6 +187,8 @@ export interface ResultsSummary {
   clinician_scores?: ClinicianScoreSummary | null
   inter_rater?: InterRaterSummary | null
   failure_examples?: FailureExample[]
+  fallback_generations?: number
+  fallback_excluded_from_metrics?: boolean
 }
 
 export interface AboutOut {

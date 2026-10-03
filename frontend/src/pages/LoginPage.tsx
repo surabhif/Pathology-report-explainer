@@ -64,9 +64,14 @@ export function LoginPage() {
 
       <div className="panel" style={{ marginTop: '1rem' }}>
         <h2 className="section-title" style={{ fontSize: '1.1rem' }}>
-          Demo tokens
+          Local demo tokens
         </h2>
-        <p className="muted">Click to fill the form for convenience.</p>
+        <p className="muted">
+          Convenience defaults for local development only. Production must set{' '}
+          <code>DEMO_ADMIN_TOKEN</code>, <code>DEMO_ANNOTATOR_TOKEN</code>, and{' '}
+          <code>DEMO_CLINICIAN_TOKEN</code> (or invite users from Admin) — known defaults are never
+          seeded when <code>APP_ENV=production</code>.
+        </p>
         <div className="stack">
           {DEMO_TOKENS.map((d) => (
             <button

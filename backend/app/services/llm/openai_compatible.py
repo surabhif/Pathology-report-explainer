@@ -1,7 +1,8 @@
 """OpenAI-compatible chat completions provider (any base URL).
 
 Works for OpenAI and xAI Grok (`https://api.x.ai/v1`). Configured via
-LLM_API_KEY / XAI_API_KEY, LLM_BASE_URL, LLM_MODEL. Uses httpx — no SDK required.
+LLM_API_KEY / XAI_API_KEY, LLM_BASE_URL, LLM_MODEL, LLM_TIMEOUT_SECONDS.
+Uses httpx — no SDK required.
 
 xAI docs: structured outputs via response_format type ``json_object`` or
 ``json_schema`` (https://docs.x.ai/developers/model-capabilities/text/structured-outputs).
@@ -15,6 +16,7 @@ from typing import Any
 import httpx
 
 from app.services.llm.base import LLMProvider
+from app.services.llm.errors import LLMServiceError
 
 logger = logging.getLogger(__name__)
 
@@ -22,8 +24,9 @@ logger = logging.getLogger(__name__)
 OPENAI_DEFAULT_BASE_URL = "https://api.openai.com/v1"
 OPENAI_DEFAULT_MODEL = "gpt-4o-mini"
 XAI_DEFAULT_BASE_URL = "https://api.x.ai/v1"
-# Current frontier text model with structured-output support (xAI public docs).
-XAI_DEFAULT_MODEL = "grok-4.7"
+# Fast non-reasoning default for pathology extraction/explain latency.
+# Override with LLM_MODEL (e.g. grok-4.7) when you want a slower reasoning model.
+XAI_DEFAULT_MODEL = "grok-4.20-0309-non-reasoning"
 
 
 class OpenAICompatibleProvider(LLMProvider):
@@ -37,7 +40,7 @@ class OpenAICompatibleProvider(LLMProvider):
         api_key: str,
         base_url: str = OPENAI_DEFAULT_BASE_URL,
         model: str = OPENAI_DEFAULT_MODEL,
-        timeout: float = 60.0,
+        timeout: float = 120.0,
         provider_name: str = "openai",
     ) -> None:
         if not api_key:
@@ -89,23 +92,50 @@ class OpenAICompatibleProvider(LLMProvider):
 
         # PHI policy: do not log full user content (may contain report text).
         logger.info(
-            "openai_compatible.complete provider=%s model=%s base_url=%s user_chars=%d",
+            "openai_compatible.complete provider=%s model=%s base_url=%s timeout=%s user_chars=%d",
             self.name,
             self._model,
             self._base_url,
+            self._timeout,
             len(user),
         )
 
-        async with httpx.AsyncClient(timeout=self._timeout) as client:
-            resp = await client.post(
-                f"{self._base_url}/chat/completions",
-                headers={
-                    "Authorization": f"Bearer {self._api_key}",
-                    "Content-Type": "application/json",
-                },
-                json=payload,
-            )
-            resp.raise_for_status()
-            data = resp.json()
+        try:
+            async with httpx.AsyncClient(timeout=self._timeout) as client:
+                resp = await client.post(
+                    f"{self._base_url}/chat/completions",
+                    headers={
+                        "Authorization": f"Bearer {self._api_key}",
+                        "Content-Type": "application/json",
+                    },
+                    json=payload,
+                )
+                resp.raise_for_status()
+                data = resp.json()
+        except httpx.TimeoutException as exc:
+            raise LLMServiceError(
+                f"The language model timed out after {int(self._timeout)} seconds. "
+                "Try again, raise LLM_TIMEOUT_SECONDS, or switch to a faster model "
+                "(e.g. grok-4.20-0309-non-reasoning).",
+                code="llm_timeout",
+            ) from exc
+        except httpx.HTTPStatusError as exc:
+            status = exc.response.status_code if exc.response is not None else "?"
+            raise LLMServiceError(
+                f"The language model returned an HTTP {status} error. "
+                "Check the API key, model id, and provider status.",
+                code="llm_http_error",
+            ) from exc
+        except httpx.HTTPError as exc:
+            raise LLMServiceError(
+                "Could not reach the language model service. Please try again shortly.",
+                code="llm_network_error",
+            ) from exc
 
-        return data["choices"][0]["message"]["content"]
+        try:
+            return data["choices"][0]["message"]["content"]
+        except (KeyError, IndexError, TypeError) as exc:
+            raise LLMServiceError(
+                "The language model returned an unexpected response shape.",
+                code="llm_bad_response",
+            ) from exc

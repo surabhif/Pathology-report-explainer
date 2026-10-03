@@ -192,12 +192,14 @@ def summary(db: DbDep, _user: CurrentUser) -> ResultsSummary:
         by_cancer_type=by_ct,
         by_field=_per_field_metrics(all_checks),
         auto_check_runs=db.query(AutoCheckRun).count(),
-        generations=db.query(Generation).count(),
+        generations=db.query(Generation).filter(Generation.is_fallback.is_(False)).count(),
         gold_annotations=db.query(AnnotationTask).filter(AnnotationTask.status == "completed").count(),
         clinician_reviews=db.query(ReviewTask).filter(ReviewTask.status == "completed").count(),
         clinician_scores=_clinician_scores(db),
         inter_rater=_inter_rater(db),
         failure_examples=_failure_examples(items),
+        fallback_generations=db.query(Generation).filter(Generation.is_fallback.is_(True)).count(),
+        fallback_excluded_from_metrics=True,
     )
 
 

@@ -169,6 +169,23 @@ export function HomePage() {
 
         {result && (
           <div className="stack">
+            <div className="panel" style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+              <div>
+                <div className="fact-key">Provider</div>
+                <div>
+                  {result.provider ?? '—'} / {result.model ?? '—'}
+                </div>
+              </div>
+              {result.is_fallback && (
+                <div className="error-text" role="status">
+                  Heuristic fallback — not attributed to{' '}
+                  {result.requested_provider ?? 'the hosted model'}
+                  {result.requested_model ? ` (${result.requested_model})` : ''}. Reason:{' '}
+                  {result.fallback_reason ?? 'validation failure'}. Do not treat this as a model
+                  evaluation sample.
+                </div>
+              )}
+            </div>
             <div className="explain-layout">
               <div className="panel">
                 <h3 className="section-title">Report</h3>

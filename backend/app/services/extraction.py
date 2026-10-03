@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
@@ -13,9 +14,18 @@ from pydantic import ValidationError
 from app.config import get_settings
 from app.schemas import FactSheet
 from app.services.llm.base import LLMProvider
+from app.services.llm.errors import LLMServiceError
 from app.services.llm.mock import extract_facts_heuristic
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class ExtractionResult:
+    facts: FactSheet
+    prompt_tag: str
+    used_fallback: bool = False
+    fallback_reason: str | None = None
 
 
 @lru_cache
@@ -40,24 +50,46 @@ async def extract_facts(
     provider: LLMProvider,
     *,
     prompt_name: str = "extract_v1.txt",
-) -> tuple[FactSheet, str]:
-    """Run extraction; return (FactSheet, raw prompt version tag).
+) -> ExtractionResult:
+    """Run extraction; return facts plus honest fallback metadata.
 
-    PHI: logs only report_id/length externally — here we log char count only.
+    Network/timeouts raise ``LLMServiceError`` (surfaced to the UI).
+    Invalid JSON/schema falls back to heuristics and is labeled as mock fallback —
+    never silently attributed to the hosted provider.
     """
     system = load_prompt(prompt_name)
     user = f"Extract structured pathology facts as JSON.\n\nREPORT:\n{report_text}"
+    prompt_tag = prompt_name.replace(".txt", "")
     logger.info(
         "extraction.start provider=%s model=%s report_chars=%d",
         provider.provider_id(),
         provider.model_id(),
         len(report_text),
     )
+
+    # Pure mock provider: heuristics are the intended path, not a "fallback".
+    if provider.provider_id() == "mock":
+        facts = validate_facts(extract_facts_heuristic(report_text))
+        return ExtractionResult(facts=facts, prompt_tag=prompt_tag, used_fallback=False)
+
     try:
         raw = await provider.complete_json(system=system, user=user, temperature=0.0)
         facts = validate_facts(raw)
-    except (ValidationError, json.JSONDecodeError, KeyError) as exc:
-        # Fallback to heuristics so the pipeline never hard-fails for MVP demos.
-        logger.warning("extraction.fallback reason=%s", type(exc).__name__)
+        return ExtractionResult(facts=facts, prompt_tag=prompt_tag, used_fallback=False)
+    except LLMServiceError:
+        raise
+    except (ValidationError, json.JSONDecodeError, KeyError, TypeError) as exc:
+        reason = f"extraction_{type(exc).__name__}"
+        logger.warning(
+            "extraction.fallback requested_provider=%s requested_model=%s reason=%s",
+            provider.provider_id(),
+            provider.model_id(),
+            reason,
+        )
         facts = validate_facts(extract_facts_heuristic(report_text))
-    return facts, prompt_name.replace(".txt", "")
+        return ExtractionResult(
+            facts=facts,
+            prompt_tag=prompt_tag,
+            used_fallback=True,
+            fallback_reason=reason,
+        )

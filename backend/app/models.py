@@ -118,6 +118,12 @@ class Generation(Base):
     prompt_explain_version: Mapped[str] = mapped_column(String(64), nullable=False)
     model: Mapped[str] = mapped_column(String(128), nullable=False)
     provider: Mapped[str] = mapped_column(String(64), nullable=False)
+    # Honest fallback labeling: when validation fails we store mock output and
+    # set is_fallback=True — never attribute heuristic output to xAI/OpenAI.
+    is_fallback: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    fallback_reason: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    requested_provider: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    requested_model: Mapped[str | None] = mapped_column(String(128), nullable=True)
     facts_json: Mapped[dict] = mapped_column(JSON, nullable=False)
     explanation_json: Mapped[dict] = mapped_column(JSON, nullable=False)
     reading_level_original: Mapped[float | None] = mapped_column(Float, nullable=True)

@@ -80,6 +80,7 @@ def get_llm_provider(settings: Settings | None = None) -> LLMProvider:
             api_key=api_key,
             base_url=base_url,
             model=model,
+            timeout=settings.llm_timeout_seconds,
             provider_name="xai",
         )
 
@@ -92,6 +93,7 @@ def get_llm_provider(settings: Settings | None = None) -> LLMProvider:
             api_key=api_key,
             base_url=base_url,
             model=model,
+            timeout=settings.llm_timeout_seconds,
             provider_name="openai",
         )
 

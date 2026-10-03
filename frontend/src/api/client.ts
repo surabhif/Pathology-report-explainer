@@ -89,8 +89,16 @@ async function request<T>(
   if (!res.ok) {
     let detail = res.statusText
     try {
-      const body = (await res.json()) as { detail?: string }
-      if (body.detail) detail = typeof body.detail === 'string' ? body.detail : JSON.stringify(body.detail)
+      const body = (await res.json()) as {
+        detail?: string | { message?: string; code?: string }
+      }
+      if (typeof body.detail === 'string') {
+        detail = body.detail
+      } else if (body.detail && typeof body.detail === 'object' && body.detail.message) {
+        detail = body.detail.message
+      } else if (body.detail) {
+        detail = JSON.stringify(body.detail)
+      }
     } catch {
       /* ignore parse errors */
     }
