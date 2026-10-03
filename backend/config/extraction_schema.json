@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PathologyFactSheet",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "diagnosis_or_histologic_type",
+    "grade",
+    "tumor_size",
+    "margins",
+    "lymph_nodes_positive",
+    "lymph_nodes_examined",
+    "pathologic_tnm_stage",
+    "biomarkers"
+  ],
+  "properties": {
+    "diagnosis_or_histologic_type": { "$ref": "#/$defs/factSpan" },
+    "grade": { "$ref": "#/$defs/factSpan" },
+    "tumor_size": { "$ref": "#/$defs/factSpan" },
+    "margins": { "$ref": "#/$defs/factSpan" },
+    "lymph_nodes_positive": { "$ref": "#/$defs/factSpan" },
+    "lymph_nodes_examined": { "$ref": "#/$defs/factSpan" },
+    "pathologic_tnm_stage": { "$ref": "#/$defs/factSpan" },
+    "biomarkers": { "$ref": "#/$defs/factSpan" }
+  },
+  "$defs": {
+    "factSpan": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "required": ["value", "quote", "start_char", "end_char"],
+          "properties": {
+            "value": {
+              "oneOf": [
+                { "type": "string" },
+                { "type": "number" },
+                { "type": "boolean" },
+                { "type": "object" }
+              ]
+            },
+            "quote": { "type": ["string", "null"] },
+            "start_char": { "type": ["integer", "null"] },
+            "end_char": { "type": ["integer", "null"] }
+          }
+        }
+      ]
+    }
+  }
+}

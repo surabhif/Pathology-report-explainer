@@ -1,0 +1,22 @@
+{
+  "cancer_types": {
+    "BRCA": {
+      "name": "Breast Invasive Carcinoma",
+      "project_id": "TCGA-BRCA",
+      "primary_site": "Breast",
+      "enabled": true
+    },
+    "COAD": {
+      "name": "Colon Adenocarcinoma",
+      "project_id": "TCGA-COAD",
+      "primary_site": "Colorectal",
+      "enabled": true
+    },
+    "LUAD": {
+      "name": "Lung Adenocarcinoma",
+      "project_id": "TCGA-LUAD",
+      "primary_site": "Lung",
+      "enabled": true
+    }
+  }
+}

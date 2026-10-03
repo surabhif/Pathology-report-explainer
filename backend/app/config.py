@@ -1,0 +1,58 @@
+"""Application settings loaded from environment / .env via pydantic-settings."""
+
+from functools import lru_cache
+from pathlib import Path
+
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# backend/ root — used to resolve relative paths for prompts, config, SQLite
+BACKEND_ROOT = Path(__file__).resolve().parent.parent
+
+
+class Settings(BaseSettings):
+    """Central configuration. Override any field with env vars or a .env file."""
+
+    model_config = SettingsConfigDict(
+        env_file=str(BACKEND_ROOT / ".env"),
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
+
+    # --- Database ---
+    # SQLite by default for local MVP; set DATABASE_URL to a Postgres DSN for prod.
+    database_url: str = f"sqlite:///{BACKEND_ROOT / 'pathology_explainer.db'}"
+
+    # --- Auth / sessions ---
+    session_ttl_hours: int = 72
+    # Cookie name for browser clients; also accepted as X-Session-Token header.
+    session_cookie_name: str = "pathology_session"
+
+    # --- LLM provider (provider-agnostic) ---
+    # LLM_PROVIDER: "mock" (default, deterministic, no API key) or "openai"
+    llm_provider: str = "mock"
+    llm_model: str = "gpt-4o-mini"
+    llm_api_key: str = ""
+    llm_base_url: str = "https://api.openai.com/v1"
+
+    # --- CORS ---
+    cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
+
+    # --- Rate limiting (public explain endpoints) ---
+    rate_limit_explain: str = "30/minute"
+
+    # --- Paths ---
+    prompts_dir: Path = BACKEND_ROOT / "prompts"
+    config_dir: Path = BACKEND_ROOT / "config"
+    docs_dir: Path = BACKEND_ROOT / "docs"
+
+    # --- Seed on startup ---
+    seed_on_startup: bool = True
+
+    @property
+    def cors_origin_list(self) -> list[str]:
+        return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
+
+
+@lru_cache
+def get_settings() -> Settings:
+    return Settings()

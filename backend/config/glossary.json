@@ -1,0 +1,64 @@
+{
+  "terms": [
+    {
+      "term": "Invasive ductal carcinoma",
+      "aliases": ["IDC"],
+      "short": "a common type of breast cancer",
+      "definition": "Cancer that started in a milk duct and has grown into nearby breast tissue."
+    },
+    {
+      "term": "Invasive lobular carcinoma",
+      "aliases": ["ILC"],
+      "short": "a type of breast cancer",
+      "definition": "Cancer that started in the milk-producing lobules and has spread into nearby tissue."
+    },
+    {
+      "term": "Adenocarcinoma",
+      "aliases": [],
+      "short": "cancer of gland-like cells",
+      "definition": "A cancer that forms in mucus-secreting gland cells."
+    },
+    {
+      "term": "margins",
+      "aliases": ["surgical margins"],
+      "short": "edges of the removed tissue",
+      "definition": "The edges of the tissue removed during surgery; negative margins mean no cancer was seen at the edge."
+    },
+    {
+      "term": "lymph nodes",
+      "aliases": ["lymph node"],
+      "short": "small filters in the immune system",
+      "definition": "Small structures that help the body fight infection; cancer can spread to them."
+    },
+    {
+      "term": "pTNM",
+      "aliases": ["pathologic stage", "TNM"],
+      "short": "a staging code",
+      "definition": "A code for tumor size/extent (T), lymph nodes (N), and distant metastasis (M) based on pathology."
+    },
+    {
+      "term": "HER2",
+      "aliases": ["HER2/neu"],
+      "short": "a growth-signal protein test",
+      "definition": "A test that checks whether cancer cells have too much of a protein that can drive growth."
+    },
+    {
+      "term": "ER",
+      "aliases": ["estrogen receptor"],
+      "short": "estrogen receptor test",
+      "definition": "A test showing whether cancer cells use estrogen to grow."
+    },
+    {
+      "term": "PR",
+      "aliases": ["progesterone receptor"],
+      "short": "progesterone receptor test",
+      "definition": "A test showing whether cancer cells use progesterone to grow."
+    },
+    {
+      "term": "MSI",
+      "aliases": ["microsatellite instability"],
+      "short": "a DNA repair test",
+      "definition": "A test of how well cancer cells repair certain DNA mistakes."
+    }
+  ]
+}

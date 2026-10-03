@@ -1,0 +1,318 @@
+"""Pydantic request/response schemas.
+
+Fact sheet: each field is FactSpan | null.
+Explanation: list of grounded sentences with source_fact_keys + quote.
+"""
+
+from __future__ import annotations
+
+from datetime import datetime
+from typing import Any, Literal
+
+from pydantic import BaseModel, EmailStr, Field
+
+
+Role = Literal["admin", "annotator", "clinician"]
+CancerType = Literal["BRCA", "COAD", "LUAD"]
+
+
+# ---------------------------------------------------------------------------
+# Facts / explanation structures
+# ---------------------------------------------------------------------------
+
+
+class FactSpan(BaseModel):
+    """A single extracted fact grounded in a report quote with character offsets."""
+
+    value: str | int | float | bool | dict[str, Any] | None = None
+    quote: str | None = None
+    start_char: int | None = None
+    end_char: int | None = None
+
+
+class FactSheet(BaseModel):
+    """Structured pathology facts extracted from a report."""
+
+    diagnosis_or_histologic_type: FactSpan | None = None
+    grade: FactSpan | None = None
+    tumor_size: FactSpan | None = None
+    margins: FactSpan | None = None
+    lymph_nodes_positive: FactSpan | None = None
+    lymph_nodes_examined: FactSpan | None = None
+    pathologic_tnm_stage: FactSpan | None = None
+    biomarkers: FactSpan | None = None  # value is typically a dict e.g. {"ER": "positive", ...}
+
+
+class ExplanationSentence(BaseModel):
+    sentence: str
+    source_fact_keys: list[str] = Field(default_factory=list)
+    quote: str | None = None
+
+
+class ExplanationPayload(BaseModel):
+    sentences: list[ExplanationSentence]
+
+
+# ---------------------------------------------------------------------------
+# Auth
+# ---------------------------------------------------------------------------
+
+
+class RedeemInviteRequest(BaseModel):
+    token: str
+
+
+class UserOut(BaseModel):
+    id: int
+    email: EmailStr
+    name: str
+    role: Role
+
+    model_config = {"from_attributes": True}
+
+
+class SessionOut(BaseModel):
+    session_token: str
+    expires_at: datetime
+    user: UserOut
+
+
+class InviteCreate(BaseModel):
+    email: EmailStr
+    name: str
+    role: Role
+    invite_token: str | None = None  # optional; generated if omitted
+
+
+# ---------------------------------------------------------------------------
+# Reports / public
+# ---------------------------------------------------------------------------
+
+
+class ReportSummary(BaseModel):
+    id: int
+    tcga_barcode: str
+    cancer_type: str
+    project_id: str
+    source: str
+
+    model_config = {"from_attributes": True}
+
+
+class ReportDetail(ReportSummary):
+    report_text: str
+    gdc_metadata: dict[str, Any] | None = None
+
+
+class ExplainResponse(BaseModel):
+    report_id: int
+    generation_id: int
+    # Report text needed so the public UI can highlight grounding quotes.
+    report_text: str = ""
+    facts: FactSheet
+    explanation: ExplanationPayload
+    reading_level_original: float | None = None
+    reading_level_explanation: float | None = None
+    # Public endpoint may omit provider/model details for clinicians;
+    # included for demo transparency on public explain.
+    provider: str | None = None
+    model: str | None = None
+    # Glossary terms relevant to this explanation (optional enrichment).
+    glossary: list[dict[str, Any]] = Field(default_factory=list)
+
+
+# ---------------------------------------------------------------------------
+# Annotation / review
+# ---------------------------------------------------------------------------
+
+
+class GoldLabelSubmit(BaseModel):
+    """Gold labels keyed by fact field name."""
+
+    gold_labels: dict[str, FactSpan | None]
+    status: Literal["completed"] = "completed"
+
+
+class AnnotationTaskOut(BaseModel):
+    id: int
+    batch_id: int
+    report_id: int
+    assignee_id: int
+    status: str
+    gold_labels: dict[str, Any] | None = None
+    completed_at: datetime | None = None
+    # Report text only — never include generation output for annotators.
+    report: ReportDetail | None = None
+
+    model_config = {"from_attributes": True}
+
+
+class ReviewScores(BaseModel):
+    accuracy: int = Field(ge=1, le=5)
+    completeness: int = Field(ge=1, le=5)
+    harm_potential: int = Field(ge=1, le=5)
+
+
+class ReviewSubmit(BaseModel):
+    scores: ReviewScores
+    flagged_sentences: list[int] = Field(default_factory=list)
+    comments: str | None = None
+    status: Literal["completed"] = "completed"
+
+
+class ReviewTaskOut(BaseModel):
+    id: int
+    batch_id: int
+    generation_id: int
+    assignee_id: int
+    status: str
+    scores: dict[str, Any] | None = None
+    flagged_sentences: list[Any] | None = None
+    comments: str | None = None
+    completed_at: datetime | None = None
+    # Clinician sees report + explanation but NOT model/prompt version.
+    report_text: str | None = None
+    cancer_type: str | None = None
+    tcga_barcode: str | None = None
+    facts: dict[str, Any] | None = None
+    explanation: dict[str, Any] | None = None
+
+    model_config = {"from_attributes": True}
+
+
+# ---------------------------------------------------------------------------
+# Admin: sets, batches, import, runs
+# ---------------------------------------------------------------------------
+
+
+class EvaluationSetCreate(BaseModel):
+    name: str
+    cancer_types: list[str] = Field(default_factory=list)
+    report_ids: list[int] = Field(default_factory=list)
+
+
+class EvaluationSetOut(BaseModel):
+    id: int
+    name: str
+    cancer_types: list[Any]
+    report_ids: list[Any]
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class TaskBatchCreate(BaseModel):
+    name: str
+    batch_type: Literal["annotate", "review", "auto_check"]
+    evaluation_set_id: int | None = None
+    assigned_user_ids: list[int] = Field(default_factory=list)
+
+
+class TaskBatchOut(BaseModel):
+    id: int
+    name: str
+    batch_type: str
+    evaluation_set_id: int | None
+    assigned_user_ids: list[Any]
+    status: str
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class ImportReportItem(BaseModel):
+    tcga_barcode: str
+    cancer_type: str
+    project_id: str = ""
+    report_text: str
+    gdc_metadata: dict[str, Any] | None = None
+    source: str = "tcga"
+
+
+class ImportReportsRequest(BaseModel):
+    reports: list[ImportReportItem]
+
+
+class AutoCheckRequest(BaseModel):
+    generation_ids: list[int] | None = None  # if None, run on all generations
+    batch_id: int | None = None
+    evaluation_set_id: int | None = None
+
+
+class ProgressOut(BaseModel):
+    annotation_pending: int
+    annotation_completed: int
+    review_pending: int
+    review_completed: int
+    total_reports: int
+    total_generations: int
+
+
+# ---------------------------------------------------------------------------
+# Results / metrics
+# ---------------------------------------------------------------------------
+
+
+class MetricWithCI(BaseModel):
+    name: str
+    value: float
+    n: int
+    ci_low: float
+    ci_high: float
+    method: str = "wilson"
+
+
+class ClinicianScoreSummary(BaseModel):
+    """Mean clinician Likert scores (1–5) with simple normal CIs."""
+
+    accuracy: MetricWithCI | None = None
+    completeness: MetricWithCI | None = None
+    harm_potential: MetricWithCI | None = None
+    n_reviews: int = 0
+
+
+class InterRaterSummary(BaseModel):
+    """Pairwise exact agreement when multiple clinicians review the same generation."""
+
+    available: bool = False
+    n_items_with_multiple_raters: int = 0
+    n_pairs: int = 0
+    metric: MetricWithCI | None = None
+
+
+class FailureExample(BaseModel):
+    generation_id: int
+    report_id: int
+    cancer_type: str | None = None
+    check_name: str
+    detail: str | None = None
+
+
+class ResultsSummary(BaseModel):
+    metrics: list[MetricWithCI]
+    by_cancer_type: dict[str, list[MetricWithCI]] = Field(default_factory=dict)
+    # Per-field accuracy when auto-checks include field-level breakdowns.
+    by_field: dict[str, list[MetricWithCI]] = Field(default_factory=dict)
+    auto_check_runs: int = 0
+    generations: int = 0
+    gold_annotations: int = 0
+    clinician_reviews: int = 0
+    clinician_scores: ClinicianScoreSummary | None = None
+    inter_rater: InterRaterSummary | None = None
+    failure_examples: list[FailureExample] = Field(default_factory=list)
+
+
+class AboutOut(BaseModel):
+    title: str
+    body: str
+
+
+class GlossaryTerm(BaseModel):
+    term: str
+    definition: str
+    short: str | None = None
+    aliases: list[str] = Field(default_factory=list)
+
+
+class GlossaryOut(BaseModel):
+    terms: list[GlossaryTerm]
