@@ -16,13 +16,18 @@ from app.services.ocr.cache import cache_key_for_pages, load_disk_cache, write_d
 from app.services.ocr.factory import get_ocr_engine
 from app.services.ocr.metrics import ocr_error_metrics
 from app.services.ocr.xai_vision import DEFAULT_EST_USD_PER_PAGE_HIGH, DEFAULT_EST_USD_PER_PAGE_LOW
-from app.services.scan_assets import case_cache_dir, case_submitter_id, load_manifest
+from app.services.scan_assets import case_cache_dir, case_submitter_id, is_real_scan_manifest, load_manifest
 
 logger = logging.getLogger(__name__)
 
 
 def _page_paths_for_report(report: Report) -> list[Path]:
     manifest = report.scan_manifest or load_manifest(report.tcga_barcode) or {}
+    if not is_real_scan_manifest(manifest):
+        raise FileNotFoundError(
+            f"No real scan pages for {report.tcga_barcode} "
+            f"(source={manifest.get('source')!r}). Facsimiles are not OCR'd for scoring."
+        )
     pages = manifest.get("pages") or []
     root = case_cache_dir(report.tcga_barcode)
     paths: list[Path] = []

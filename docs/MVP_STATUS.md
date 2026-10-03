@@ -2,9 +2,10 @@
 
 ## Done (end-to-end)
 
-- Public demo: BRCA / COAD / LUAD → **three-stage journey** (cached scan → **Our OCR** vs Textract reference + diff → fact sheet + grounded explanation)
-- PathExplain OCR: configurable `OCR_ENGINE` (**tesseract** default, **xai_vision** optional), engine/version tags, timing, cost estimate, disk+DB cache
-- OCR benchmark vs TCGA-Reports (CER/WER) + extraction-impact; Results dashboard section
+- Public demo: BRCA / COAD / LUAD → **three-stage journey** (authentic cached scan → **Our OCR** vs Textract reference + diff → fact sheet + grounded explanation); stage 1 hidden when no real scan
+- PathExplain OCR: configurable `OCR_ENGINE` (**tesseract** default, **xai_vision** optional), engine/version tags, timing, cost estimate, disk+DB cache; refuses facsimile pages
+- OCR benchmark vs TCGA-Reports on **real scans only** (CER/WER + CIs + extraction-impact); facsimiles excluded; Results shows `n_real_scans_scored`
+  - Latest Tesseract (`tesseract-5.3.4`) on 30 Tatonetti pages: **CER 0.293** [0.180, 0.405], **WER 0.456** [0.332, 0.579] (`data/ocr_benchmark_latest.json`)
 - No free-text paste box; admin-only de-identified upload test (no image retention)
 - Invite-token auth with roles admin / annotator / clinician
 - Admin: users/invites, evaluation sets, batches, progress, auto-check job, OCR benchmark
@@ -24,9 +25,9 @@
 ## Thin / stubbed (intentional for days-not-weeks)
 
 - **Live GDC enrichment:** barcode→TSS map + optional API helper; seed uses static metadata blobs. Full live GDC sync is optional (`--fetch-gdc` / network).
-- **GDC scan PDFs at cache time:** when GDC is unreachable, demo ships labeled OCR-text facsimiles; re-run `fetch_scan_pages.py --force` when GDC is up.
+- **Scan source:** demo pages are Tatonetti Textract-input images (range-fetched); GDC PDF remains an alternate when GDC is up. Facsimiles are unscorable and not shown publicly.
 - **Scan-region highlight:** omitted without Textract bounding boxes; OCR-text quote highlight is implemented.
-- **Native Render without Docker:** Tesseract unavailable — use Docker runtime or `OCR_ENGINE=xai_vision`/`mock`.
+- **Native Render without Docker:** Tesseract unavailable — switch the Render service to **Docker** (`backend/Dockerfile`) or set `OCR_ENGINE=xai_vision`/`mock`.
 - **Alembic:** initial migration present; local MVP uses SQLAlchemy `create_all` on startup.
 - **Magic-link email delivery:** invite tokens work; no SMTP/sendgrid — admin copies tokens.
 - **Inter-rater:** computed when ≥2 clinicians score the same generation; seed only assigns one clinician (metric appears after dual assignment).

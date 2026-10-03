@@ -450,10 +450,11 @@ export function AdminPage() {
           OCR benchmark
         </h2>
         <p className="muted">
-          Run PathExplain OCR (default Tesseract) on seeded sample scans stratified by cancer type.
-          Measures CER/WER vs TCGA-Reports (Textract) and field-extraction accuracy impact vs gold
-          when labels exist. Results appear on the Results dashboard. Public demo never accepts
-          arbitrary uploads (PHI).
+          Run PathExplain OCR (default Tesseract) on cached authentic scan pages only (Tatonetti
+          Textract inputs or GDC PDF renders). OCR-text facsimiles are excluded — they are circular
+          vs the Textract reference. Reports CER/WER with 95% CIs and extraction-impact vs gold when
+          labels exist. Results appear on the Results dashboard. Public demo never accepts arbitrary
+          uploads (PHI).
         </p>
         <div className="row">
           <button

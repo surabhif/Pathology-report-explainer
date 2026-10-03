@@ -1,0 +1,28 @@
+{
+  "engine": "tesseract",
+  "engine_version": "tesseract-5.3.4",
+  "text": "Diagnosis\n\nThis concerns a tubulovillous adenoma of the colon mucosa with mild dysplasia of the\ncylindrical epithelium (in I).\n\nI concerns a right hemicolectomy preparation with a slightly differentiated mucinous\nadenocarcinoma with histopathological differentiation grade G 3, with significant\nextracellular mucus accumulation, with chronic recurrent inflammation, with acute\ninflammatory activity, with fine focal necroses, with erosion of the inner surface of the\ntumor, with tumor infiltration of the colon wall layers up to the pericolic fatty connective\ntissue, with carcinomatous lymphangitis, with tumor-free lymph nodes (0/36), with\nmoderate chronic lymphadenitis, with chronic appendicitis and with tumor-free overview\nslices from all other resection sections described.\n\nIn relation to the section preparations examined, the spreading of tumor of the colon\ncarcinoma corresponds to tumor stage p T 3, p N 0 (0/36), MX, LI, RO.\n\nTumor classification:\n\nICDO-DA M 8480/3\n\nG3",
+  "pages": [
+    {
+      "page": 1,
+      "text": "Diagnosis\n\nThis concerns a tubulovillous adenoma of the colon mucosa with mild dysplasia of the\ncylindrical epithelium (in I).\n\nI concerns a right hemicolectomy preparation with a slightly differentiated mucinous\nadenocarcinoma with histopathological differentiation grade G 3, with significant\nextracellular mucus accumulation, with chronic recurrent inflammation, with acute\ninflammatory activity, with fine focal necroses, with erosion of the inner surface of the\ntumor, with tumor infiltration of the colon wall layers up to the pericolic fatty connective\ntissue, with carcinomatous lymphangitis, with tumor-free lymph nodes (0/36), with\nmoderate chronic lymphadenitis, with chronic appendicitis and with tumor-free overview\nslices from all other resection sections described.\n\nIn relation to the section preparations examined, the spreading of tumor of the colon\ncarcinoma corresponds to tumor stage p T 3, p N 0 (0/36), MX, LI, RO.\n\nTumor classification:\n\nICDO-DA M 8480/3\n\nG3",
+      "duration_ms": 509.6343879995402,
+      "width": 1400,
+      "height": 1981,
+      "filename": "page-01.jpg"
+    }
+  ],
+  "duration_ms": 510.9281170007307,
+  "estimated_cost_usd": null,
+  "model": null,
+  "meta": {
+    "cache_key": "e05fb395b1e4c367cbe9071c",
+    "page_count": 1,
+    "cer": 0.0152,
+    "wer": 0.1079,
+    "ref_chars": 989,
+    "hyp_chars": 976,
+    "ref_words": 139,
+    "hyp_words": 139
+  }
+}

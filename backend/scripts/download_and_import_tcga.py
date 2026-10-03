@@ -144,12 +144,12 @@ def main() -> None:
     parser.add_argument(
         "--fetch-scans",
         action="store_true",
-        help="Cache GDC pathology PDF page images (or OCR facsimile) for each imported report",
+        help="Cache authentic scan pages (Tatonetti Textract inputs, else GDC PDF) for each imported report",
     )
     parser.add_argument(
-        "--no-facsimile",
+        "--allow-facsimile",
         action="store_true",
-        help="With --fetch-scans, skip OCR facsimiles when GDC is unavailable",
+        help="With --fetch-scans, allow unscorable OCR-text facsimiles if real scans are missing",
     )
     args = parser.parse_args()
     wanted = {c.strip().upper() for c in args.cancer_types.split(",") if c.strip()}
@@ -217,14 +217,17 @@ def main() -> None:
                     ensure_scan_pages_for_barcode(
                         item["tcga_barcode"],
                         item["report_text"],
-                        allow_facsimile=not args.no_facsimile,
+                        allow_facsimile=args.allow_facsimile,
                     )
                 )
                 report.scan_manifest = manifest
                 db.commit()
         print(f"Imported {len(selected)} reports: {dict(counts)}")
         if args.fetch_scans:
-            print("Cached scan pages under data/scan_cache/ (GDC PDF renders when available).")
+            print(
+                "Cached scan pages under data/scan_cache/ "
+                "(Tatonetti Textract inputs preferred; GDC PDF alternate; facsimiles only if --allow-facsimile)."
+            )
     finally:
         db.close()
 

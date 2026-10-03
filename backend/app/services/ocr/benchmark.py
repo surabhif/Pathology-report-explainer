@@ -1,4 +1,9 @@
-"""OCR benchmark vs TCGA-Reports (Textract) reference + extraction impact."""
+"""OCR benchmark vs TCGA-Reports (Textract) reference + extraction impact.
+
+IMPORTANT: Only real scan pages (Tatonetti Textract inputs or GDC PDF renders)
+are scored. OCR-text facsimiles are circular vs the Textract reference and are
+excluded — the dashboard reports how many real scans were scored.
+"""
 
 from __future__ import annotations
 
@@ -15,8 +20,13 @@ from app.services.llm.factory import get_llm_provider
 from app.services.metrics import mean_metric, proportion_metric
 from app.services.ocr.metrics import ocr_error_metrics
 from app.services.ocr.pipeline import run_ocr_on_report
+from app.services.scan_assets import is_real_scan_manifest, load_manifest
 
 logger = logging.getLogger(__name__)
+
+
+def _manifest_for(report: Report) -> dict[str, Any]:
+    return report.scan_manifest or load_manifest(report.tcga_barcode) or {}
 
 
 async def run_ocr_benchmark(
@@ -25,8 +35,9 @@ async def run_ocr_benchmark(
     engine_name: str | None = None,
     report_ids: list[int] | None = None,
     force: bool = False,
+    require_real_scans: bool = True,
 ) -> OcrBenchmarkRun:
-    """Stratified sample (all seeded reports if ids omitted): CER/WER + extraction accuracy."""
+    """Stratified OCR CER/WER on real scans only (+ optional extraction impact)."""
     q = db.query(Report)
     if report_ids:
         q = q.filter(Report.id.in_(report_ids))
@@ -47,29 +58,64 @@ async def run_ocr_benchmark(
     by_cancer_cers: dict[str, list[float]] = defaultdict(list)
     by_cancer_wers: dict[str, list[float]] = defaultdict(list)
 
-    # Extraction tallies: our_ocr vs reference vs gold
     extract_from_our: list[bool] = []
     extract_from_ref: list[bool] = []
 
-    engine_tag = engine_name
+    engine_tag = engine_name or "tesseract"
     engine_version = ""
+    n_real = 0
+    n_facsimile_excluded = 0
+    n_missing = 0
 
     for report in reports:
+        manifest = _manifest_for(report)
+        source = manifest.get("source")
+        if require_real_scans and not is_real_scan_manifest(manifest):
+            if source == "ocr_text_facsimile":
+                n_facsimile_excluded += 1
+                per_report.append(
+                    {
+                        "report_id": report.id,
+                        "tcga_barcode": report.tcga_barcode,
+                        "cancer_type": report.cancer_type,
+                        "scan_source": source,
+                        "scored": False,
+                        "excluded_reason": "facsimile_circular_vs_textract_reference",
+                    }
+                )
+            else:
+                n_missing += 1
+                per_report.append(
+                    {
+                        "report_id": report.id,
+                        "tcga_barcode": report.tcga_barcode,
+                        "cancer_type": report.cancer_type,
+                        "scan_source": source,
+                        "scored": False,
+                        "excluded_reason": "no_real_scan_cached",
+                    }
+                )
+            continue
+
         try:
             ocr_run = await run_ocr_on_report(
-                db, report, engine_name=engine_name, force=force
+                db, report, engine_name=engine_name or "tesseract", force=force
             )
         except FileNotFoundError as exc:
+            n_missing += 1
             per_report.append(
                 {
                     "report_id": report.id,
                     "tcga_barcode": report.tcga_barcode,
                     "cancer_type": report.cancer_type,
+                    "scan_source": source,
+                    "scored": False,
                     "error": str(exc),
                 }
             )
             continue
 
+        n_real += 1
         engine_tag = ocr_run.engine
         engine_version = ocr_run.engine_version
         metrics = ocr_error_metrics(report.report_text, ocr_run.text)
@@ -85,12 +131,13 @@ async def run_ocr_benchmark(
             "engine_version": ocr_run.engine_version,
             "duration_ms": ocr_run.duration_ms,
             "estimated_cost_usd": ocr_run.estimated_cost_usd,
+            "scan_source": source,
+            "scored": True,
             **metrics,
         }
 
         gold = gold_by_report.get(report.id)
         if gold:
-            # Extract from our OCR text
             our_ext = await extract_facts(ocr_run.text, provider, prompt_name="extract_v1.txt")
             ref_ext = await extract_facts(
                 report.report_text, provider, prompt_name="extract_v1.txt"
@@ -101,7 +148,6 @@ async def run_ocr_benchmark(
                 "our_ocr": our_acc,
                 "reference_textract": ref_acc,
             }
-            # Micro-average field matches for summary
             for info in (our_acc.get("per_field") or {}).values():
                 if info.get("scored"):
                     extract_from_our.append(bool(info.get("match")))
@@ -111,19 +157,35 @@ async def run_ocr_benchmark(
 
         per_report.append(row)
         logger.info(
-            "ocr.benchmark barcode=%s cer=%.3f wer=%.3f ms=%.0f",
+            "ocr.benchmark barcode=%s source=%s cer=%.3f wer=%.3f ms=%.0f",
             report.tcga_barcode,
+            source,
             metrics["cer"],
             metrics["wer"],
             ocr_run.duration_ms or 0,
         )
 
-    all_cers = [r["cer"] for r in per_report if "cer" in r]
-    all_wers = [r["wer"] for r in per_report if "wer" in r]
+    if n_real == 0:
+        raise ValueError(
+            "No real scan pages available to score. Facsimiles are excluded "
+            "(circular vs Textract). Fetch Tatonetti/GDC pages first."
+        )
+
+    all_cers = [r["cer"] for r in per_report if r.get("scored") and "cer" in r]
+    all_wers = [r["wer"] for r in per_report if r.get("scored") and "wer" in r]
     summary: dict[str, Any] = {
-        "n_reports": len([r for r in per_report if "cer" in r]),
+        "n_reports_considered": len(reports),
+        "n_real_scans_scored": n_real,
+        "n_facsimile_excluded": n_facsimile_excluded,
+        "n_missing_scan": n_missing,
         "engine": engine_tag,
         "engine_version": engine_version,
+        "scan_sources_allowed": ["tatonetti_textract_input", "gdc_pdf"],
+        "integrity_note": (
+            "CER/WER are computed only on authentic page images (Tatonetti Textract "
+            "inputs or GDC PDF renders). OCR-text facsimiles are excluded because they "
+            "are rendered from the Textract reference and would circularly understate error."
+        ),
         "overall": {
             "cer": mean_metric("cer", all_cers) if all_cers else None,
             "wer": mean_metric("wer", all_wers) if all_wers else None,
@@ -161,8 +223,8 @@ async def run_ocr_benchmark(
             "n_gold_fields_our": len(extract_from_our),
             "n_gold_fields_ref": len(extract_from_ref),
             "note": (
-                "Compares extract→field accuracy when the input text is our OCR vs "
-                "TCGA-Reports (Textract) reference, scored against gold labels when present."
+                "Compares extract→field accuracy when the input text is our OCR of a "
+                "real scan vs TCGA-Reports (Textract) reference, scored against gold."
             ),
         }
 

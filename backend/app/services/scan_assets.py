@@ -244,19 +244,44 @@ def render_ocr_facsimile_pages(
     return pages
 
 
+REAL_SCAN_SOURCES = frozenset({"gdc_pdf", "tatonetti_textract_input"})
+
+
+def is_real_scan_manifest(manifest: dict[str, Any] | None) -> bool:
+    """True only for authentic page images — never OCR-text facsimiles."""
+    if not manifest:
+        return False
+    if manifest.get("scorable_for_ocr_benchmark") is False:
+        return False
+    source = manifest.get("source")
+    if source == "ocr_text_facsimile":
+        return False
+    if source in REAL_SCAN_SOURCES:
+        return True
+    return bool(manifest.get("is_real_scan"))
+
+
 async def ensure_scan_pages_for_barcode(
     barcode: str,
     report_text: str,
     *,
-    allow_facsimile: bool = True,
+    allow_facsimile: bool = False,
+    prefer_tatonetti: bool = True,
     max_pages: int = 2,
     force: bool = False,
 ) -> dict[str, Any]:
-    """Fetch GDC PDF pages or fall back to OCR facsimile; write manifest."""
+    """Fetch real scan pages (Tatonetti Textract inputs, else GDC PDF).
+
+    Facsimiles are opt-in only (`allow_facsimile=True`) and are never scorable
+    for OCR benchmarks — they are circular vs the Textract reference text.
+    """
     submitter = case_submitter_id(barcode)
     out_dir = case_cache_dir(barcode)
     existing = load_manifest(barcode)
-    if existing and not force and existing.get("pages"):
+    if existing and not force and existing.get("pages") and is_real_scan_manifest(existing):
+        return existing
+    # If we only have a facsimile cached, replace it when force or when fetching reals.
+    if existing and not force and existing.get("pages") and not prefer_tatonetti:
         return existing
 
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -269,15 +294,36 @@ async def ensure_scan_pages_for_barcode(
         "citation": None,
         "gdc_file_id": None,
         "gdc_file_name": None,
+        "is_real_scan": False,
+        "scorable_for_ocr_benchmark": False,
     }
 
+    # 1) Prefer Tatonetti original Textract input page images (range-fetched).
+    if prefer_tatonetti:
+        try:
+            from app.services.tatonetti_pages import fetch_tatonetti_pages
+
+            t_manifest = fetch_tatonetti_pages(
+                barcode, out_dir, max_pages=max_pages, force=force
+            )
+            if t_manifest and t_manifest.get("pages"):
+                write_manifest(barcode, t_manifest)
+                return t_manifest
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "tatonetti.scan_fetch_failed barcode=%s err=%s",
+                barcode,
+                type(exc).__name__,
+            )
+            manifest["tatonetti_error"] = type(exc).__name__
+
+    # 2) NCI GDC Pathology Report PDF page renders (when GDC is up).
     try:
         hit = await find_gdc_pathology_pdf(barcode)
         if hit and hit.get("file_id"):
             pdf_path = out_dir / "pathology_report.pdf"
             await download_gdc_file(hit["file_id"], pdf_path)
             pages = render_pdf_pages(pdf_path, out_dir, max_pages=max_pages)
-            # Prefer relative paths under case dir for serving
             for p in pages:
                 p["relpath"] = f"{submitter}/{p['filename']}"
             manifest.update(
@@ -291,6 +337,8 @@ async def ensure_scan_pages_for_barcode(
                     ),
                     "gdc_file_id": hit.get("file_id"),
                     "gdc_file_name": hit.get("file_name"),
+                    "is_real_scan": True,
+                    "scorable_for_ocr_benchmark": True,
                 }
             )
             write_manifest(barcode, manifest)
@@ -304,6 +352,7 @@ async def ensure_scan_pages_for_barcode(
         manifest["gdc_error"] = type(exc).__name__
 
     if not allow_facsimile:
+        # Leave an empty / failed manifest — UI hides stage 1; OCR benchmark skips.
         write_manifest(barcode, manifest)
         return manifest
 
@@ -314,14 +363,15 @@ async def ensure_scan_pages_for_barcode(
         {
             "pages": pages,
             "source": "ocr_text_facsimile",
-            "label": "Page facsimile from OCR text (GDC scan not cached)",
+            "label": "Page facsimile from OCR text (NOT a real scan — unscorable)",
             "citation": (
-                "Authentic open-access scans are TCGA pathology report PDFs on the NCI GDC. "
-                "GDC was unreachable or returned no PDF during caching, so this demo shows a "
-                "layout facsimile rendered from the publicly released TCGA-Reports OCR text. "
-                "Re-run scripts/fetch_scan_pages.py when GDC is available to replace these images."
+                "This is a layout facsimile rendered from TCGA-Reports OCR text, not an authentic "
+                "scan. It must not be used for OCR CER/WER benchmarks (circular). Replace with "
+                "Tatonetti Textract input pages or GDC PDF renders."
             ),
             "ocr_attribution": OCR_CITATION,
+            "is_real_scan": False,
+            "scorable_for_ocr_benchmark": False,
         }
     )
     write_manifest(barcode, manifest)

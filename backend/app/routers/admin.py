@@ -282,6 +282,8 @@ async def ocr_benchmark(
         "engine_version": run.engine_version,
         "summary": summary,
         "n_reports": len(run.report_ids or []),
+        "n_real_scans_scored": summary.get("n_real_scans_scored"),
+        "n_facsimile_excluded": summary.get("n_facsimile_excluded"),
     }
 
 

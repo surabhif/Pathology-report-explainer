@@ -5,23 +5,32 @@
     {
       "page": 1,
       "filename": "page-01.jpg",
-      "width": 850,
-      "height": 1100,
-      "relpath": "TCGA-44-8119/page-01.jpg"
+      "width": 1400,
+      "height": 1812,
+      "relpath": "TCGA-44-8119/page-01.jpg",
+      "source_member": "imgs_for_aws/TCGA-44-8119.c40ea4c8-8cbe-4a44-96d4-ae524a916449_Page_1.jpg",
+      "source_bytes_raw": 1301673,
+      "source_bytes_cached": 207069
     },
     {
       "page": 2,
       "filename": "page-02.jpg",
-      "width": 850,
-      "height": 1100,
-      "relpath": "TCGA-44-8119/page-02.jpg"
+      "width": 1400,
+      "height": 1812,
+      "relpath": "TCGA-44-8119/page-02.jpg",
+      "source_member": "imgs_for_aws/TCGA-44-8119.c40ea4c8-8cbe-4a44-96d4-ae524a916449_Page_2.jpg",
+      "source_bytes_raw": 1500710,
+      "source_bytes_cached": 254201
     }
   ],
-  "source": "ocr_text_facsimile",
-  "label": "Page facsimile from OCR text (GDC scan not cached)",
-  "citation": "Authentic open-access scans are TCGA pathology report PDFs on the NCI GDC. GDC was unreachable or returned no PDF during caching, so this demo shows a layout facsimile rendered from the publicly released TCGA-Reports OCR text. Re-run scripts/fetch_scan_pages.py when GDC is available to replace these images.",
-  "gdc_file_id": null,
-  "gdc_file_name": null,
-  "gdc_error": "HTTPStatusError",
-  "ocr_attribution": "Kefeli et al., TCGA-Reports (Patterns 2024) \u2014 machine-readable text via AWS Textract"
+  "source": "tatonetti_textract_input",
+  "label": "Original pathology report page image (Tatonetti lab / Textract input)",
+  "citation": "Page images published by the Tatonetti lab as the AWS Textract inputs for TCGA-Reports (Kefeli et al., Patterns 2024): https://tatonettilab-resources.s3.us-west-1.amazonaws.com/tcga-path-reports/imgs_for_aws.zip (members: imgs_for_aws/TCGA-44-8119.c40ea4c8-8cbe-4a44-96d4-ae524a916449_Page_1.jpg, imgs_for_aws/TCGA-44-8119.c40ea4c8-8cbe-4a44-96d4-ae524a916449_Page_2.jpg).",
+  "tatonetti_zip_url": "https://tatonettilab-resources.s3.us-west-1.amazonaws.com/tcga-path-reports/imgs_for_aws.zip",
+  "tatonetti_members": [
+    "imgs_for_aws/TCGA-44-8119.c40ea4c8-8cbe-4a44-96d4-ae524a916449_Page_1.jpg",
+    "imgs_for_aws/TCGA-44-8119.c40ea4c8-8cbe-4a44-96d4-ae524a916449_Page_2.jpg"
+  ],
+  "is_real_scan": true,
+  "scorable_for_ocr_benchmark": true
 }

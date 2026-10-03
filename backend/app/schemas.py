@@ -141,7 +141,7 @@ class ReportJourneyOut(BaseModel):
     tcga_barcode: str
     cancer_type: str
     # Stage 1
-    scan_source: str | None = None  # gdc_pdf | ocr_text_facsimile | None
+    scan_source: str | None = None  # tatonetti_textract_input | gdc_pdf | None (facsimiles never exposed)
     scan_label: str | None = None
     scan_citation: str | None = None
     scan_pages: list[ScanPageOut] = Field(default_factory=list)
@@ -158,6 +158,9 @@ class ReportJourneyOut(BaseModel):
     our_ocr: OurOcrOut | None = None
     default_ocr_engine: str = "tesseract"
     available_ocr_engines: list[str] = Field(default_factory=lambda: ["tesseract", "xai_vision"])
+    # Stage 1 is shown only when authentic scan pages are cached (never facsimiles).
+    has_real_scan: bool = False
+    scan_scorable: bool = False
     # Stage 3 pointer — client loads explain separately
     explain_path: str
 

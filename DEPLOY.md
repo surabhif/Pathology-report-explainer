@@ -90,6 +90,7 @@ Invite clinicians from the Admin UI when demo tokens are not used.
 2. Set Dockerfile path to `./Dockerfile` (root directory still `backend`).
 3. Add OCR env vars if you want Grok vision instead: `OCR_ENGINE=xai_vision`, keep `LLM_API_KEY`.
 4. Redeploy manually after merge.
+5. Ensure `data/scan_cache/` (authentic Tatonetti/GDC pages) is present in the image or mounted — OCR benchmarks refuse facsimile pages.
 
 **Vercel:** no new env vars required for OCR (OCR runs only on the API). Existing `VITE_API_BASE_URL` is enough.
 

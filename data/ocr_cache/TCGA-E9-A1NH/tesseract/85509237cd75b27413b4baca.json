@@ -1,0 +1,28 @@
+{
+  "engine": "tesseract",
+  "engine_version": "tesseract-5.3.4",
+  "text": "co) ) a\n~ bite\n8 IBREAST TISSUE CHECKLIST | 4| 1\n\nai\n4 x Specimen type: Mastectomy | i i\na Specimen size: Not specified\nYS \u2018Tumor site: Breast Spey\ny Tumor size: 2.2 x 1.5x5cm (ef\nfe Grossly evident lesion: Yes E A nf\n> < Histologic type: Infiltrating ductal carcinoma Be BE fan\n3 8 Histologic grade: as PHS\nge \u2018Tumor extent: Not specified i FR RRee\n5 Lymph nodes: 3/5 positive for metastasis (Axillary 3/5) Lett upper Pistia\n3 $ Extracapsular invasion of the lymph nodes: Not specified jinner\n\" i 3 Margins: Not specified jouadrant\n*. Nottingham Histologic Score\n3S \u00a7 a Tubule formation: Not specified 3\nNUS Nuclear pleomorphism: Not specified t=\nMitotic count (25x): Not specified \u2014\u2014\nMitotic count (40x): Not specified | i\nTotal Nottingham Score: Score cannot be determined 2 ===>\nEvidence of neo-adjuvant treatment: Not specified : ===\nAdditional pathologic findings: Not specified LS ===\nIComments:_Non ===\nf=\n=\n\u2014\u2014\u2014\n23===\n_S\na \u2014\u2014",
+  "pages": [
+    {
+      "page": 1,
+      "text": "co) ) a\n~ bite\n8 IBREAST TISSUE CHECKLIST | 4| 1\n\nai\n4 x Specimen type: Mastectomy | i i\na Specimen size: Not specified\nYS \u2018Tumor site: Breast Spey\ny Tumor size: 2.2 x 1.5x5cm (ef\nfe Grossly evident lesion: Yes E A nf\n> < Histologic type: Infiltrating ductal carcinoma Be BE fan\n3 8 Histologic grade: as PHS\nge \u2018Tumor extent: Not specified i FR RRee\n5 Lymph nodes: 3/5 positive for metastasis (Axillary 3/5) Lett upper Pistia\n3 $ Extracapsular invasion of the lymph nodes: Not specified jinner\n\" i 3 Margins: Not specified jouadrant\n*. Nottingham Histologic Score\n3S \u00a7 a Tubule formation: Not specified 3\nNUS Nuclear pleomorphism: Not specified t=\nMitotic count (25x): Not specified \u2014\u2014\nMitotic count (40x): Not specified | i\nTotal Nottingham Score: Score cannot be determined 2 ===>\nEvidence of neo-adjuvant treatment: Not specified : ===\nAdditional pathologic findings: Not specified LS ===\nIComments:_Non ===\nf=\n=\n\u2014\u2014\u2014\n23===\n_S\na \u2014\u2014",
+      "duration_ms": 539.0844249996007,
+      "width": 1400,
+      "height": 1081,
+      "filename": "page-01.jpg"
+    }
+  ],
+  "duration_ms": 540.090477999911,
+  "estimated_cost_usd": null,
+  "model": null,
+  "meta": {
+    "cache_key": "85509237cd75b27413b4baca",
+    "page_count": 1,
+    "cer": 0.2689,
+    "wer": 0.9505,
+    "ref_chars": 766,
+    "hyp_chars": 932,
+    "ref_words": 101,
+    "hyp_words": 164
+  }
+}

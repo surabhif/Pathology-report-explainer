@@ -69,12 +69,12 @@ On the Login page, redeem one of:
 
 ## End-to-end evaluation loop
 
-1. **Public demo** (`/`): pick Breast / Colon / Lung → open a report → **three-stage journey** (scanned page → **Our OCR** vs TCGA-Reports/Textract reference with diff → PathExplain fact sheet + grounded explanation), glossary, reading levels. Default explain grounds quotes in Our OCR text.
-2. **Admin** (`/admin` + `DEMO_ADMIN_TOKEN`): evaluation sets & batches, invites, auto-checks, **OCR benchmark**.
+1. **Public demo** (`/`): pick Breast / Colon / Lung → open a report → **three-stage journey** (authentic scanned page → **Our OCR** vs TCGA-Reports/Textract reference with diff → PathExplain fact sheet + grounded explanation). Stage 1 is hidden when no real scan is cached; facsimiles are never shown. Default explain grounds quotes in Our OCR when a real scan exists.
+2. **Admin** (`/admin` + `DEMO_ADMIN_TOKEN`): evaluation sets & batches, invites, auto-checks, **OCR benchmark** (real scans only).
 3. **Annotator** (`/annotate`): label fact-sheet fields by highlighting spans (model output is hidden).
 4. **Auto-checks** (Admin → Run automatic checks): field accuracy vs gold, TCGA metadata agreement, number grounding, unsupported sentences, reading levels.
 5. **Clinician** (`/review`): side-by-side report + explanation; score accuracy / completeness / harm potential (1–5); flag sentences; comment. Prompt/model version is hidden.
-6. **Results** (`/results`): per-field and per-cancer metrics with 95% CIs, **OCR CER/WER + extraction impact**, clinician score summaries, failure examples, CSV export.
+6. **Results** (`/results`): per-field and per-cancer metrics with 95% CIs, **OCR CER/WER on real scans** (with `n_real_scans_scored`) + extraction impact, clinician score summaries, failure examples, CSV export.
 
 ## Environment variables
 
@@ -128,14 +128,14 @@ python scripts/import_tcga.py ../data/sample_reports.json
 # Download full zip and import a stratified slice (not committed)
 python scripts/download_and_import_tcga.py --cancer-types BRCA,COAD,LUAD --limit-per-type 50
 
-# Same import, also cache scan page images (GDC PDF renders, or OCR facsimile if GDC is down)
-python scripts/download_and_import_tcga.py --cancer-types BRCA,COAD,LUAD --limit-per-type 10 --fetch-scans
+# Rebuild stratified OCR set + range-fetch Tatonetti authentic pages (not the full 24GB zip)
+python scripts/prepare_ocr_benchmark_set.py --per-type 10 --fetch-scans
 
-# Refresh demo scan pages only
+# Refresh authentic scan pages (Tatonetti first, GDC alternate). Facsimiles are opt-in and unscorable.
 python scripts/fetch_scan_pages.py --from-sample-data --force --sync-db
 ```
 
-Cached pages live under `data/scan_cache/<TCGA-case>/` (JPEGs + `manifest.json`). The public demo serves them from our API — it does not hot-link GDC or S3 at runtime. Stage 2 OCR text is attributed to Kefeli et al. / Textract; PathExplain owns stages 2→3 (extract + explain) only.
+Cached pages live under `data/scan_cache/<TCGA-case>/` (JPEGs + `manifest.json` citing `tatonetti_textract_input` or `gdc_pdf`). The public demo serves authentic pages only — it does not hot-link GDC/S3 and does not show OCR-text facsimiles. Stage 2 compares PathExplain OCR against Kefeli et al. / Textract reference.
 
 Cancer types are configurable in `backend/config/cancer_types.json`.
 

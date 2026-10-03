@@ -1,0 +1,28 @@
+{
+  "engine": "tesseract",
+  "engine_version": "tesseract-5.3.4",
+  "text": "a ~\nDepartment of Cancer Pathology (cito) |\ncopy No. 2\ncate:\nExamination: Histopathological examination\nInternal invoice No. Cost of diagnostic procedure Examination No.: |\nPatient: XXX PESEL: XXX Ace: Gender: i\nMaterial: | Multiple organ resection \u2014 segment of the large intestine\nMaterial collected on: Material received on:\nExpected time of examination: in\nClinical diagnosis: Cancer of the sigmoid colon\nExamination performed on: | |\nMacroscopic description:\nA 12 cm length of the large intestine with fat tissue sized 14 x 6 x 9.5 cm. Tumour sized 4 x 3 x 1.5 cm detected\nin the mucosa. The lesion surrounding 50% of the intestine circumference, removed by 5 cm from one of the\nincision lines, and 5.3 from the opposite one. The lesion infiltrates macroscopically the muscular membrane.\nDiverticulum 1 cm in diameter found outside the tumour.\nMicroscopic description:\nAdenocarcinoma tubulopapillare (G2). Infiltratio carcinomatosa profunda tunicae muscularis propriae . Incision\nlines free of neoplastic lesions. Lymphonodulitis reactiva (No XI).\nHistopathological Diagnosis:\nAdenocarcinoma tubulopapillare coli. Tubulopapillar adenocarcinoma of the colon.\n(G2, Dukes B, Astler - Coller BI, pT2, pNO).\nCompliance validated by: Po\nCONTACT YOU DOCTOR WITH THIS REPORT!",
+  "pages": [
+    {
+      "page": 1,
+      "text": "a ~\nDepartment of Cancer Pathology (cito) |\ncopy No. 2\ncate:\nExamination: Histopathological examination\nInternal invoice No. Cost of diagnostic procedure Examination No.: |\nPatient: XXX PESEL: XXX Ace: Gender: i\nMaterial: | Multiple organ resection \u2014 segment of the large intestine\nMaterial collected on: Material received on:\nExpected time of examination: in\nClinical diagnosis: Cancer of the sigmoid colon\nExamination performed on: | |\nMacroscopic description:\nA 12 cm length of the large intestine with fat tissue sized 14 x 6 x 9.5 cm. Tumour sized 4 x 3 x 1.5 cm detected\nin the mucosa. The lesion surrounding 50% of the intestine circumference, removed by 5 cm from one of the\nincision lines, and 5.3 from the opposite one. The lesion infiltrates macroscopically the muscular membrane.\nDiverticulum 1 cm in diameter found outside the tumour.\nMicroscopic description:\nAdenocarcinoma tubulopapillare (G2). Infiltratio carcinomatosa profunda tunicae muscularis propriae . Incision\nlines free of neoplastic lesions. Lymphonodulitis reactiva (No XI).\nHistopathological Diagnosis:\nAdenocarcinoma tubulopapillare coli. Tubulopapillar adenocarcinoma of the colon.\n(G2, Dukes B, Astler - Coller BI, pT2, pNO).\nCompliance validated by: Po\nCONTACT YOU DOCTOR WITH THIS REPORT!",
+      "duration_ms": 669.0020530004404,
+      "width": 1400,
+      "height": 1981,
+      "filename": "page-01.jpg"
+    }
+  ],
+  "duration_ms": 670.4527469992172,
+  "estimated_cost_usd": null,
+  "model": null,
+  "meta": {
+    "cache_key": "4b1f695808d95b93c5c112a6",
+    "page_count": 1,
+    "cer": 0.2218,
+    "wer": 0.3247,
+    "ref_chars": 1055,
+    "hyp_chars": 1271,
+    "ref_words": 154,
+    "hyp_words": 189
+  }
+}

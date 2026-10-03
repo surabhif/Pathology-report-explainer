@@ -1,0 +1,28 @@
+{
+  "engine": "tesseract",
+  "engine_version": "tesseract-5.3.4",
+  "text": "\u2018 \u2018 /Cb-0-3\n. \u2018 Adinercareiome Nts 8140/3\nSiti. Ctr C8. 0 es 28 |u\n(eeu ee\n@ sample ID #\nDiagnosis:\n1.: Tumor-free lipomatous atrophic lymph node.\n2.: Right hemicolectomy specimen with tumor-free resection margins and under inclusion\nof an ulcerated, malignant, solid tumor in the cecum, conforming to the type of a poorly\ndifferentiated adenocarcinoma, with infiltration of the lamina muscularis propria and\nwithout regional lymph node metastases (G3, pT2 LO VO RO pNO 0/27).\nAdditional immunohistological investigations are being conducted due to the histological\npeculiarities of the tumor. A follow-up report on this will be submitted at a later date.\nni\nFollow-up report:\nFrom an immunohistological perspective, the tumor cells were positive for broad-\nspectrum cytokeratins. Large numbers of CD3-positive and CD20-negative or T-\nlymphocytes are also interspersed.\nBased on the histology and immunohistology, this is thus a poorly differentiated\ncolorectal adenocarcinoma, or cecum carcinoma, with a dense lymphocytic stromal\ninfiltrate.\nThe poor tumor differentiation and the dense lymphocytic inflammatory infiltration may\n@ be indicators of the presence of a microsatellite unstable (possibly HNPCC-associated)\ncolorectal carcinoma.\n_aca7-aForncotE RC gacted\nspaegnasc-6472- FBR OER\nHREM AT\n1\n1 ATE\nWANA ANU\nve lay |\nSe aaa +e\na :\nDaal casey aro\nGate igicirete = Lad iT\nCee Sr HE",
+  "pages": [
+    {
+      "page": 1,
+      "text": "\u2018 \u2018 /Cb-0-3\n. \u2018 Adinercareiome Nts 8140/3\nSiti. Ctr C8. 0 es 28 |u\n(eeu ee\n@ sample ID #\nDiagnosis:\n1.: Tumor-free lipomatous atrophic lymph node.\n2.: Right hemicolectomy specimen with tumor-free resection margins and under inclusion\nof an ulcerated, malignant, solid tumor in the cecum, conforming to the type of a poorly\ndifferentiated adenocarcinoma, with infiltration of the lamina muscularis propria and\nwithout regional lymph node metastases (G3, pT2 LO VO RO pNO 0/27).\nAdditional immunohistological investigations are being conducted due to the histological\npeculiarities of the tumor. A follow-up report on this will be submitted at a later date.\nni\nFollow-up report:\nFrom an immunohistological perspective, the tumor cells were positive for broad-\nspectrum cytokeratins. Large numbers of CD3-positive and CD20-negative or T-\nlymphocytes are also interspersed.\nBased on the histology and immunohistology, this is thus a poorly differentiated\ncolorectal adenocarcinoma, or cecum carcinoma, with a dense lymphocytic stromal\ninfiltrate.\nThe poor tumor differentiation and the dense lymphocytic inflammatory infiltration may\n@ be indicators of the presence of a microsatellite unstable (possibly HNPCC-associated)\ncolorectal carcinoma.\n_aca7-aForncotE RC gacted\nspaegnasc-6472- FBR OER\nHREM AT\n1\n1 ATE\nWANA ANU\nve lay |\nSe aaa +e\na :\nDaal casey aro\nGate igicirete = Lad iT\nCee Sr HE",
+      "duration_ms": 768.2485280001856,
+      "width": 1400,
+      "height": 1812,
+      "filename": "page-01.jpg"
+    }
+  ],
+  "duration_ms": 768.9641760007362,
+  "estimated_cost_usd": null,
+  "model": null,
+  "meta": {
+    "cache_key": "89c7c38358ebdd1227f0c39e",
+    "page_count": 1,
+    "cer": 0.2079,
+    "wer": 0.4277,
+    "ref_chars": 1169,
+    "hyp_chars": 1387,
+    "ref_words": 159,
+    "hyp_words": 211
+  }
+}

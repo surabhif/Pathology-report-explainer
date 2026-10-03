@@ -4,8 +4,9 @@ This folder holds a **small committed sample** of de-identified TCGA pathology r
 
 | Path | Purpose |
 |------|---------|
-| `sample_reports.json` | Six real TCGA-Reports excerpts (2 BRCA, 2 COAD, 2 LUAD) |
-| `scan_cache/<case>/` | Cached page images + `manifest.json` for the public demo journey (GDC PDF renders when available; otherwise honestly labeled OCR-text facsimiles) |
+| `sample_reports.json` | Stratified TCGA-Reports excerpts for the public demo + OCR benchmark (10 BRCA / 10 COAD / 10 LUAD) |
+| `ocr_benchmark_set.json` | Same stratified set used to build/refetch the OCR benchmark |
+| `scan_cache/<case>/` | Cached **authentic** page images + `manifest.json` (Tatonetti Textract inputs preferred; GDC PDF renders as alternate). Facsimiles are never the default and are unscorable. |
 
 ## Full dataset (not committed)
 
@@ -17,17 +18,20 @@ python backend/scripts/download_and_import_tcga.py \
   --cancer-types BRCA,COAD,LUAD \
   --limit-per-type 50
 
-# Also cache scan pages for any imported report:
-python backend/scripts/download_and_import_tcga.py \
-  --cancer-types BRCA,COAD,LUAD \
-  --limit-per-type 10 \
-  --fetch-scans
+# Rebuild the stratified OCR benchmark set and range-fetch Tatonetti pages only:
+python backend/scripts/prepare_ocr_benchmark_set.py --per-type 10 --fetch-scans
 
-# Refresh only the demo sample scan cache:
+# Refresh authentic scan pages (Tatonetti first, then GDC). Facsimiles opt-in only:
 python backend/scripts/fetch_scan_pages.py --from-sample-data --force --sync-db
+# python backend/scripts/fetch_scan_pages.py --from-sample-data --force --allow-facsimile  # unscorable
 ```
 
-Original scans are open-access TCGA pathology report PDFs on the NCI GDC (`data_category=Clinical`, `data_type=Pathology Report`, `data_format=PDF`). The Tatonetti lab also hosts Textract input page images; for MVP we prefer GDC PDFs (smaller) and fall back to labeled OCR facsimiles if GDC is unreachable. Never hot-link remote scan URLs at runtime.
+**Authentic scan sources (cited in each `manifest.json`):**
+
+1. **Tatonetti Textract inputs** (preferred for OCR benchmarks) — page JPEGs from `https://tatonettilab-resources.s3.us-west-1.amazonaws.com/tcga-path-reports/imgs_for_aws.zip` (24 GB; we HTTP range-request only the members for our barcodes via `remotezip`).
+2. **NCI GDC pathology PDFs** (alternate when GDC is up) — `data_category=Clinical`, `data_type=Pathology Report`, `data_format=PDF`.
+
+OCR-text facsimiles are circular vs the Textract reference and must not be scored or shown as scans. Never hot-link remote scan URLs at runtime.
 
 Never attempt to re-identify patients. Reports are open-access TCGA data; cite Kefeli et al., Patterns 2024, and credit TCGA.
 

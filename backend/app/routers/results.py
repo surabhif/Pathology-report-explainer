@@ -209,13 +209,15 @@ def _latest_ocr_benchmark(db) -> dict | None:
     if not row:
         return None
     payload = row.results_json or {}
+    summary = payload.get("summary") or {}
     return {
         "id": row.id,
         "engine": row.engine,
         "engine_version": row.engine_version,
         "created_at": row.created_at.isoformat() if row.created_at else None,
-        "summary": payload.get("summary") or {},
+        "summary": summary,
         "n_reports": len(row.report_ids or []),
+        "n_real_scans_scored": summary.get("n_real_scans_scored"),
         "reference": "TCGA-Reports (Kefeli et al.; AWS Textract)",
     }
 

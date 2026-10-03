@@ -61,9 +61,9 @@ React (required) + Vite + TypeScript. Simple CSS with a calm teal/slate research
 
 Salil’s product ask: show how a scanned page becomes structured content — **owned end-to-end by PathExplain**.
 
-1. **Scanned report** — open-access TCGA pathology PDF page images from the NCI GDC (`Clinical` / `Pathology Report` / `PDF`), fetched at import/build time into `data/scan_cache/` (never hot-linked at runtime). If GDC is down while packaging, we ship a clearly labeled **OCR-text facsimile** so the layout still demos; the UI must not claim it is a GDC scan.
-2. **OCR text** — PathExplain runs **its own OCR** on the cached pages. Default engine: **Tesseract** (free, Render-friendly via `backend/Dockerfile`). Optional: **xAI Grok vision** (`OCR_ENGINE=xai_vision`) through chat completions image input (`image_url` / `detail=low|high`). Stage 2 also keeps the **TCGA-Reports / Textract** transcript (Kefeli et al.) as a **reference** for CER/WER and side-by-side / diff comparison — not as “our” OCR.
-3. **Facts & explanation** — structured fact sheet + grounded explanation. Users can explain from Our OCR or the reference transcript; quotes ground in the chosen text.
+1. **Scanned report** — authentic page images only. Preferred source: the Tatonetti lab’s original Textract-input JPEGs (`imgs_for_aws.zip`, HTTP range-fetched into `data/scan_cache/`; never the full 24 GB archive). Fallback when GDC is up: NCI GDC pathology PDF page renders. **OCR-text facsimiles are never shown in the public demo** and are never scored (they are circular vs the Textract reference). If no authentic scan is cached, stage 1 is hidden.
+2. **OCR text** — PathExplain runs **its own OCR** on authentic cached pages. Default engine: **Tesseract** (free, Render-friendly via `backend/Dockerfile`). Optional: **xAI Grok vision** (`OCR_ENGINE=xai_vision`) through chat completions image input (`image_url` / `detail=low|high`). Stage 2 also keeps the **TCGA-Reports / Textract** transcript (Kefeli et al.) as a **reference** for CER/WER and side-by-side / diff comparison — not as “our” OCR. Without a real scan, only the reference transcript is shown.
+3. **Facts & explanation** — structured fact sheet + grounded explanation. Users can explain from Our OCR (when a real scan exists) or the reference transcript; quotes ground in the chosen text.
 
 ### OCR engine comparison (why Tesseract is default)
 
@@ -80,14 +80,17 @@ Every OCR run stores `engine`, `engine_version`, timing (`duration_ms`), and opt
 
 ### Benchmark
 
-Admin → Run OCR benchmark (or `POST /api/admin/ocr/benchmark`) runs stratified sample reports (by cancer type), measures CER/WER vs Textract reference, and when gold labels exist compares field-extraction accuracy from Our OCR vs reference text. Results appear on the Results dashboard (`ocr_benchmark`).
+Admin → Run OCR benchmark (or `POST /api/admin/ocr/benchmark`) scores **only authentic scans** (Tatonetti Textract inputs or GDC PDF renders). Facsimiles are excluded and counted as `n_facsimile_excluded`. The Results dashboard reports `n_real_scans_scored`, overall CER/WER with 95% CIs, per-cancer breakdowns, and extraction impact when gold labels exist. Do not report CER/WER from facsimile pages — that measurement is circular.
+
+Seeded MVP set: 30 stratified reports (10 BRCA / 10 COAD / 10 LUAD) with Tatonetti pages cached under `data/scan_cache/`. Rebuild with `python backend/scripts/prepare_ocr_benchmark_set.py --per-type 10 --fetch-scans`.
+
+**Latest Tesseract benchmark (real Tatonetti pages only, n=30):** CER **0.293** (95% CI 0.180–0.405), WER **0.456** (95% CI 0.332–0.579). Engine `tesseract-5.3.4`. Facsimiles excluded: 0. See `data/ocr_benchmark_latest.json`.
 
 ## Future work
 
-- Prefer real GDC PDF page renders over facsimiles whenever GDC is reachable (`python backend/scripts/fetch_scan_pages.py --from-sample-data --force`).
-- Optional: Textract geometry for scan-region quote highlight.
+- When GDC maintenance ends, optionally refresh pages via GDC PDF renders as an alternate source (`fetch_scan_pages.py`, still preferring Tatonetti inputs for benchmark honesty).
+- Optional: Textract geometry (`aws_response.tar.gz`) for scan-region quote highlight.
 - Optional: PaddleOCR / EasyOCR as a third engine for ablations.
-- Broader OCR benchmark beyond the six seeded samples once more scan pages are cached.
 
 ## What we deliberately stubbed or kept thin in MVP
 

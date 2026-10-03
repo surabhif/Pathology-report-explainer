@@ -54,18 +54,23 @@ export function ReportJourney({
   onExplainWithSource,
   explaining = false,
 }: Props) {
-  const [stage, setStage] = useState<Stage>('scan')
-  const [ocrView, setOcrView] = useState<OcrView>('our')
+  const [stage, setStage] = useState<Stage>(journey.has_real_scan ? 'scan' : 'ocr')
+  const [ocrView, setOcrView] = useState<OcrView>(journey.has_real_scan ? 'our' : 'reference')
   const [ourOcr, setOurOcr] = useState<OurOcrOut | null>(journey.our_ocr ?? null)
   const [ocrLoading, setOcrLoading] = useState(false)
   const [ocrError, setOcrError] = useState<string | null>(null)
   const [diff, setDiff] = useState<OcrDiffOut | null>(null)
-  const isFacsimile = journey.scan_source === 'ocr_text_facsimile'
+  const hasRealScan = Boolean(journey.has_real_scan)
   const isGdc = journey.scan_source === 'gdc_pdf'
+  const isTatonetti = journey.scan_source === 'tatonetti_textract_input'
+
+  const visibleStages = STAGES.filter((s) => s.id !== 'scan' || hasRealScan)
 
   useEffect(() => {
     setOurOcr(journey.our_ocr ?? null)
-  }, [journey.our_ocr, journey.report_id])
+    setStage(journey.has_real_scan ? 'scan' : 'ocr')
+    setOcrView(journey.has_real_scan ? 'our' : 'reference')
+  }, [journey.our_ocr, journey.report_id, journey.has_real_scan])
 
   async function ensureOurOcr() {
     if (ourOcr || ocrLoading) return ourOcr
@@ -119,7 +124,7 @@ export function ReportJourney({
   return (
     <div className="journey stack">
       <div className="journey-steps" role="tablist" aria-label="Report journey stages">
-        {STAGES.map((s) => (
+        {visibleStages.map((s) => (
           <button
             key={s.id}
             type="button"
@@ -128,7 +133,7 @@ export function ReportJourney({
             className={`journey-step ${stage === s.id ? 'active' : ''}`}
             onClick={() => {
               setStage(s.id)
-              if (s.id === 'ocr') void ensureOurOcr()
+              if (s.id === 'ocr' && hasRealScan) void ensureOurOcr()
             }}
           >
             <span className="journey-step-n">{s.n}</span>
@@ -137,7 +142,14 @@ export function ReportJourney({
         ))}
       </div>
 
-      {stage === 'scan' && (
+      {!hasRealScan && (
+        <p className="muted" role="note">
+          Stage 1 (scanned page) is hidden for this sample — no authentic scan page is cached.
+          Facsimiles rendered from OCR text are never shown in the public demo.
+        </p>
+      )}
+
+      {stage === 'scan' && hasRealScan && (
         <div className="panel stack" role="tabpanel">
           <h3 className="section-title" style={{ fontSize: '1.1rem' }}>
             Stage 1 — Original scanned pathology report
@@ -146,25 +158,21 @@ export function ReportJourney({
             {journey.scan_label ||
               'Open-access TCGA pathology report page image cached for this demo.'}
           </p>
+          {isTatonetti && (
+            <p className="muted">
+              Source: Tatonetti lab Textract input page images (range-fetched from{' '}
+              <code>imgs_for_aws.zip</code>) — the same pages Kefeli et al. sent to AWS Textract.
+              Cached locally; not hot-linked at runtime. {journey.scan_citation}
+            </p>
+          )}
           {isGdc && (
             <p className="muted">
               Source: NCI GDC (Clinical → Pathology Report → PDF), page render stored locally — not
-              hot-linked at runtime.
-            </p>
-          )}
-          {isFacsimile && (
-            <p className="error-text" role="note">
-              Honesty note: the NCI GDC was unreachable while packaging these demo assets, so this
-              image is a <strong>layout facsimile rendered from the public OCR text</strong>, not an
-              authentic GDC scan page. Re-run{' '}
-              <code>python backend/scripts/fetch_scan_pages.py --from-sample-data --force</code> when
-              GDC is available to replace it with real PDF page renders. {journey.scan_citation}
+              hot-linked at runtime. {journey.scan_citation}
             </p>
           )}
           {!journey.scan_pages.length && (
-            <p className="muted">
-              No scan pages cached yet. Run the fetch script to pull GDC pathology PDFs.
-            </p>
+            <p className="muted">No scan pages cached for this sample.</p>
           )}
           <div className="scan-pages">
             {journey.scan_pages.map((p) => (
@@ -190,21 +198,24 @@ export function ReportJourney({
               Stage 2 — Machine-readable OCR text
             </h3>
             <p className="muted">
-              PathExplain runs its own OCR on the cached scan pages (default:{' '}
-              <code>{journey.default_ocr_engine}</code>). Compare against the TCGA-Reports / Textract
-              reference (Kefeli et al.). Public demo never accepts arbitrary uploads (PHI).
+              {hasRealScan
+                ? `PathExplain runs its own OCR on authentic cached scan pages (default: ${journey.default_ocr_engine}). Compare against the TCGA-Reports / Textract reference (Kefeli et al.).`
+                : 'No authentic scan is cached for this sample, so PathExplain OCR is unavailable here. The TCGA-Reports / Textract reference text is shown for reading only.'}{' '}
+              Public demo never accepts arbitrary uploads (PHI).
             </p>
             <div className="pill-group" role="group" aria-label="OCR source">
-              <button
-                type="button"
-                className={`pill ${ocrView === 'our' ? 'active' : ''}`}
-                onClick={() => {
-                  setOcrView('our')
-                  void ensureOurOcr()
-                }}
-              >
-                Our OCR
-              </button>
+              {hasRealScan && (
+                <button
+                  type="button"
+                  className={`pill ${ocrView === 'our' ? 'active' : ''}`}
+                  onClick={() => {
+                    setOcrView('our')
+                    void ensureOurOcr()
+                  }}
+                >
+                  Our OCR
+                </button>
+              )}
               <button
                 type="button"
                 className={`pill ${ocrView === 'reference' ? 'active' : ''}`}
@@ -212,13 +223,15 @@ export function ReportJourney({
               >
                 TCGA-Reports OCR (Kefeli et al.)
               </button>
-              <button
-                type="button"
-                className={`pill ${ocrView === 'diff' ? 'active' : ''}`}
-                onClick={() => void showDiff()}
-              >
-                Diff
-              </button>
+              {hasRealScan && (
+                <button
+                  type="button"
+                  className={`pill ${ocrView === 'diff' ? 'active' : ''}`}
+                  onClick={() => void showDiff()}
+                >
+                  Diff
+                </button>
+              )}
             </div>
             {ocrLoading && <p className="muted">Running OCR on cached scan pages…</p>}
             {ocrError && <p className="error-text">{ocrError}</p>}
@@ -293,17 +306,19 @@ export function ReportJourney({
                 <FactSheetPanel facts={result.facts} activeKey={activeFact} onSelect={onFactSelect} />
                 {onExplainWithSource && (
                   <div className="pill-group" style={{ marginTop: '0.75rem' }}>
+                    {hasRealScan && (
+                      <button
+                        type="button"
+                        className="btn btn-primary"
+                        disabled={explaining}
+                        onClick={() => onExplainWithSource('our_ocr')}
+                      >
+                        Explain from Our OCR
+                      </button>
+                    )}
                     <button
                       type="button"
-                      className="btn btn-primary"
-                      disabled={explaining}
-                      onClick={() => onExplainWithSource('our_ocr')}
-                    >
-                      Explain from Our OCR
-                    </button>
-                    <button
-                      type="button"
-                      className="btn btn-ghost"
+                      className={hasRealScan ? 'btn btn-ghost' : 'btn btn-primary'}
                       disabled={explaining}
                       onClick={() => onExplainWithSource('reference')}
                     >

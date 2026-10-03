@@ -1,0 +1,28 @@
+{
+  "engine": "tesseract",
+  "engine_version": "tesseract-5.3.4",
+  "text": "Date Recd: ; |\nSURGICAL PATHOLOGY REPORT\nSPECIMEN\nLeft upper lobe wedge resection\nCLINICAL NOTES\nPRE-OP DIAGNOSIS: Lung cancer\nGROSS DESCRIPTION\nReceived fresh, subsequently fixed in formalin, labeled\n\"left upper lobe wedge resection\". The specimen consists\nof a wedge of lung which is 78 gram. The specimen is 15 x 5.5 x 4\ncm. and has a stapled margin of 15 cm. The pleura is violaceous\nsmooth and glistening. There is a 1 x 1 cm. umbilication in the\npleura. This focus is inked and the specimen is sectioned to show a\n3.5 x 2.5 x 2.4 cm. pink tan tumor which shows fibrous stippling\npresent. This is contiguous within the pleural umbilication\nRepresentative tissue was submitted for tumor procurement. The tumor\ncomes within 1.5 cm. of the sacral margin (inked black). The\nremainder of the cut surface of the lung is pink tan and spongy\nshowing no other discrete gross lesions. Representative sections of\nthe specimen are submitted as follows:\nBLOCK SUMMARY: 1-4 - Representative section of tumor including\npleural umbilicatio__nd surgical stapled margin; 5 - representative\nof normal. RS-5 | |\nMICROSCOPIC DESCRIPTION\nHistologic type: Adenocarcinoma\nHistologic grade: Poorly differentiated\nPrimary tumor (pT): The tumor measures 3.5 cm. in maximum dimension\nand is limited to the lung parenchyma in the wedge specimen and\ninvades into the pleura, pT2.\nMargins of resection: Negative\nVascular invasion: Present\nRegional lymph nodes (pN): pNX\nDistant metastasis (pM): pMX\nOther findings: A small piece of tissue from the tumor and normal\ntissue is submitted for the tumor bank\n4x1\nDIAGNOSIS\nLung, left upper lobe wedge resection -\nInvasive poorly-differentiated adenocarcinoma (see tumor\ncharacteristics in the lung template in the microscopic\ndescription) .\n--- End Of Report ---",
+  "pages": [
+    {
+      "page": 1,
+      "text": "Date Recd: ; |\nSURGICAL PATHOLOGY REPORT\nSPECIMEN\nLeft upper lobe wedge resection\nCLINICAL NOTES\nPRE-OP DIAGNOSIS: Lung cancer\nGROSS DESCRIPTION\nReceived fresh, subsequently fixed in formalin, labeled\n\"left upper lobe wedge resection\". The specimen consists\nof a wedge of lung which is 78 gram. The specimen is 15 x 5.5 x 4\ncm. and has a stapled margin of 15 cm. The pleura is violaceous\nsmooth and glistening. There is a 1 x 1 cm. umbilication in the\npleura. This focus is inked and the specimen is sectioned to show a\n3.5 x 2.5 x 2.4 cm. pink tan tumor which shows fibrous stippling\npresent. This is contiguous within the pleural umbilication\nRepresentative tissue was submitted for tumor procurement. The tumor\ncomes within 1.5 cm. of the sacral margin (inked black). The\nremainder of the cut surface of the lung is pink tan and spongy\nshowing no other discrete gross lesions. Representative sections of\nthe specimen are submitted as follows:\nBLOCK SUMMARY: 1-4 - Representative section of tumor including\npleural umbilicatio__nd surgical stapled margin; 5 - representative\nof normal. RS-5 | |\nMICROSCOPIC DESCRIPTION\nHistologic type: Adenocarcinoma\nHistologic grade: Poorly differentiated\nPrimary tumor (pT): The tumor measures 3.5 cm. in maximum dimension\nand is limited to the lung parenchyma in the wedge specimen and\ninvades into the pleura, pT2.\nMargins of resection: Negative\nVascular invasion: Present\nRegional lymph nodes (pN): pNX\nDistant metastasis (pM): pMX\nOther findings: A small piece of tissue from the tumor and normal\ntissue is submitted for the tumor bank\n4x1\nDIAGNOSIS\nLung, left upper lobe wedge resection -\nInvasive poorly-differentiated adenocarcinoma (see tumor\ncharacteristics in the lung template in the microscopic\ndescription) .\n--- End Of Report ---",
+      "duration_ms": 847.6181810001435,
+      "width": 1400,
+      "height": 1812,
+      "filename": "page-01.jpg"
+    }
+  ],
+  "duration_ms": 848.2923090004988,
+  "estimated_cost_usd": null,
+  "model": null,
+  "meta": {
+    "cache_key": "16040bbdd7d7c82716c00e56",
+    "page_count": 1,
+    "cer": 0.0455,
+    "wer": 0.2036,
+    "ref_chars": 1782,
+    "hyp_chars": 1781,
+    "ref_words": 280,
+    "hyp_words": 284
+  }
+}

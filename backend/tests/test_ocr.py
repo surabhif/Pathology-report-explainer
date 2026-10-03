@@ -98,10 +98,16 @@ async def test_admin_ocr_benchmark(client, admin_headers):
     assert body["n_reports"] >= 1
     summary = body["summary"]
     assert summary.get("overall")
+    assert summary.get("n_real_scans_scored", 0) >= 1
+    assert "integrity_note" in summary
+    assert body.get("n_real_scans_scored") == summary.get("n_real_scans_scored")
 
     results = await client.get("/api/results/summary", headers=admin_headers)
     assert results.status_code == 200
-    assert results.json().get("ocr_benchmark") is not None
+    ob = results.json().get("ocr_benchmark")
+    assert ob is not None
+    assert ob["summary"].get("n_real_scans_scored", 0) >= 1
+    assert "facsimile" in (ob["summary"].get("integrity_note") or "").lower()
 
 
 @pytest.mark.asyncio

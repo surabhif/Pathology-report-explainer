@@ -40,9 +40,15 @@ async def test_ensure_scan_pages_facsimile_when_gdc_missing(tmp_path: Path, monk
         "app.services.scan_assets.scan_cache_root",
         lambda: tmp_path / "scan_cache",
     )
-    with patch(
-        "app.services.scan_assets.find_gdc_pathology_pdf",
-        new=AsyncMock(return_value=None),
+    with (
+        patch(
+            "app.services.scan_assets.find_gdc_pathology_pdf",
+            new=AsyncMock(return_value=None),
+        ),
+        patch(
+            "app.services.tatonetti_pages.fetch_tatonetti_pages",
+            return_value=None,
+        ),
     ):
         manifest = await ensure_scan_pages_for_barcode(
             "TCGA-XX-9999",
@@ -52,10 +58,43 @@ async def test_ensure_scan_pages_facsimile_when_gdc_missing(tmp_path: Path, monk
         )
     assert manifest["source"] == "ocr_text_facsimile"
     assert manifest["pages"]
-    assert "Textract" in (manifest.get("ocr_attribution") or "")
+    assert manifest.get("is_real_scan") is False
+    assert manifest.get("scorable_for_ocr_benchmark") is False
+    assert "Textract" in (manifest.get("ocr_attribution") or "") or "circular" in (
+        manifest.get("citation") or ""
+    ).lower()
     assert load_manifest("TCGA-XX-9999") is not None
     page = tmp_path / "scan_cache" / "TCGA-XX-9999" / "page-01.jpg"
     assert page.exists()
+
+
+@pytest.mark.asyncio
+async def test_ensure_scan_pages_skips_facsimile_by_default(tmp_path: Path, monkeypatch):
+    monkeypatch.setattr(
+        "app.services.scan_assets.scan_cache_root",
+        lambda: tmp_path / "scan_cache",
+    )
+    with (
+        patch(
+            "app.services.scan_assets.find_gdc_pathology_pdf",
+            new=AsyncMock(return_value=None),
+        ),
+        patch(
+            "app.services.tatonetti_pages.fetch_tatonetti_pages",
+            return_value=None,
+        ),
+    ):
+        manifest = await ensure_scan_pages_for_barcode(
+            "TCGA-XX-8888",
+            "Histologic type: adenocarcinoma.",
+            allow_facsimile=False,
+            force=True,
+        )
+    assert not manifest.get("pages")
+    assert manifest.get("is_real_scan") is False
+    from app.services.scan_assets import is_real_scan_manifest
+
+    assert not is_real_scan_manifest(manifest)
 
 
 @pytest.mark.asyncio
@@ -83,10 +122,12 @@ async def test_explain_includes_journey_and_serves_cached_pages(client):
     assert "Textract" in expl["journey"]["ocr_label"]
     assert "reference" in expl["journey"]["ocr_label"].lower() or "Kefeli" in expl["journey"]["ocr_citation"]
 
-    # Demo samples ship scan_cache pages; seed attaches the manifest.
+    # Demo samples ship authentic Tatonetti (or GDC) pages; facsimiles are never public stage 1.
     pages = expl["journey"]["scan_pages"]
-    assert pages, f"expected cached pages for {barcode}"
-    assert expl["journey"]["scan_source"] in {"gdc_pdf", "ocr_text_facsimile"}
+    assert pages, f"expected cached authentic pages for {barcode}"
+    assert expl["journey"]["has_real_scan"] is True
+    assert expl["journey"]["scan_source"] in {"tatonetti_textract_input", "gdc_pdf"}
+    assert expl["journey"]["scan_source"] != "ocr_text_facsimile"
 
     url = pages[0]["url"]
     assert f"/api/public/reports/{rid}/scan-pages/" in url
@@ -106,12 +147,16 @@ async def test_scan_page_rejects_path_traversal(client):
 
 
 def test_committed_demo_scan_cache_present():
-    """Demo samples ship page images under data/scan_cache (not hot-linked)."""
+    """Demo samples ship authentic page images under data/scan_cache (not hot-linked)."""
+    from app.services.scan_assets import is_real_scan_manifest
+
     root = scan_cache_root()
     assert root.is_dir()
     for barcode in ("TCGA-B6-A401", "TCGA-A6-3808", "TCGA-44-8119"):
         manifest = load_manifest(barcode)
         assert manifest is not None, barcode
         assert manifest.get("pages"), barcode
+        assert is_real_scan_manifest(manifest), barcode
+        assert manifest.get("source") in {"tatonetti_textract_input", "gdc_pdf"}
         for page in manifest["pages"]:
             assert (root / barcode / page["filename"]).exists()

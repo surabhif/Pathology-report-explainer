@@ -98,6 +98,8 @@ export interface ReportJourneyOut {
   our_ocr?: OurOcrOut | null
   default_ocr_engine?: string
   available_ocr_engines?: string[]
+  has_real_scan?: boolean
+  scan_scorable?: boolean
   explain_path: string
 }
 
@@ -269,6 +271,7 @@ export interface ResultsSummary {
     created_at?: string | null
     summary?: Record<string, unknown>
     n_reports?: number
+    n_real_scans_scored?: number
     reference?: string
   } | null
 }

@@ -1,0 +1,25 @@
+{
+  "barcode": "TCGA-AA-3696",
+  "case_submitter_id": "TCGA-AA-3696",
+  "pages": [
+    {
+      "page": 1,
+      "filename": "page-01.jpg",
+      "width": 1400,
+      "height": 1812,
+      "relpath": "TCGA-AA-3696/page-01.jpg",
+      "source_member": "imgs_for_aws/TCGA-AA-3696.5356d8ab-d569-41af-bd68-4378154d3ae7_Page_1.jpg",
+      "source_bytes_raw": 978981,
+      "source_bytes_cached": 120276
+    }
+  ],
+  "source": "tatonetti_textract_input",
+  "label": "Original pathology report page image (Tatonetti lab / Textract input)",
+  "citation": "Page images published by the Tatonetti lab as the AWS Textract inputs for TCGA-Reports (Kefeli et al., Patterns 2024): https://tatonettilab-resources.s3.us-west-1.amazonaws.com/tcga-path-reports/imgs_for_aws.zip (members: imgs_for_aws/TCGA-AA-3696.5356d8ab-d569-41af-bd68-4378154d3ae7_Page_1.jpg).",
+  "tatonetti_zip_url": "https://tatonettilab-resources.s3.us-west-1.amazonaws.com/tcga-path-reports/imgs_for_aws.zip",
+  "tatonetti_members": [
+    "imgs_for_aws/TCGA-AA-3696.5356d8ab-d569-41af-bd68-4378154d3ae7_Page_1.jpg"
+  ],
+  "is_real_scan": true,
+  "scorable_for_ocr_benchmark": true
+}

@@ -34,7 +34,7 @@ from app.services.ocr.metrics import ocr_error_metrics, word_diff_spans
 from app.services.ocr.pipeline import latest_ocr_run, run_ocr_on_report
 from app.services.rate_limit import client_ip_key
 from app.services.reading_level import explanation_text_from_payload, flesch_kincaid_grade
-from app.services.scan_assets import case_cache_dir, load_manifest
+from app.services.scan_assets import case_cache_dir, is_real_scan_manifest, load_manifest
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/public", tags=["public"])
@@ -199,19 +199,22 @@ def _our_ocr_out(run: OcrRun) -> OurOcrOut:
 def _journey_for_report(report: Report, db: Session | None = None) -> ReportJourneyOut:
     settings = get_settings()
     manifest = report.scan_manifest or load_manifest(report.tcga_barcode) or {}
+    real = is_real_scan_manifest(manifest)
     pages_out: list[ScanPageOut] = []
-    for p in manifest.get("pages") or []:
-        filename = p.get("filename")
-        if not filename:
-            continue
-        pages_out.append(
-            ScanPageOut(
-                page=int(p.get("page") or len(pages_out) + 1),
-                url=f"/api/public/reports/{report.id}/scan-pages/{filename}",
-                width=p.get("width"),
-                height=p.get("height"),
+    # Never expose facsimile pages as "scans" in the public demo.
+    if real:
+        for p in manifest.get("pages") or []:
+            filename = p.get("filename")
+            if not filename:
+                continue
+            pages_out.append(
+                ScanPageOut(
+                    page=int(p.get("page") or len(pages_out) + 1),
+                    url=f"/api/public/reports/{report.id}/scan-pages/{filename}",
+                    width=p.get("width"),
+                    height=p.get("height"),
+                )
             )
-        )
     our: OurOcrOut | None = None
     if db is not None:
         run = latest_ocr_run(db, report.id, engine=settings.ocr_engine) or latest_ocr_run(
@@ -223,13 +226,15 @@ def _journey_for_report(report: Report, db: Session | None = None) -> ReportJour
         report_id=report.id,
         tcga_barcode=report.tcga_barcode,
         cancer_type=report.cancer_type,
-        scan_source=manifest.get("source"),
-        scan_label=manifest.get("label"),
-        scan_citation=manifest.get("citation"),
+        scan_source=manifest.get("source") if real else None,
+        scan_label=manifest.get("label") if real else None,
+        scan_citation=manifest.get("citation") if real else None,
         scan_pages=pages_out,
         report_text=report.report_text,
         our_ocr=our,
         default_ocr_engine=settings.ocr_engine,
+        has_real_scan=real,
+        scan_scorable=real,
         explain_path=f"/api/public/reports/{report.id}/explain",
     )
 
@@ -299,7 +304,10 @@ def report_ocr_diff(
 
 @router.get("/reports/{report_id}/scan-pages/{filename}")
 def report_scan_page(report_id: int, filename: str, db: Session = Depends(get_db)):
-    """Serve a cached scan/facsimile page image (never hot-link GDC at runtime)."""
+    """Serve a cached authentic scan page image (never hot-link GDC/S3 at runtime).
+
+    Facsimile pages are not served on the public demo — they are circular vs Textract.
+    """
     from fastapi.responses import FileResponse
 
     if "/" in filename or "\\" in filename or ".." in filename:
@@ -307,6 +315,9 @@ def report_scan_page(report_id: int, filename: str, db: Session = Depends(get_db
     report = db.query(Report).filter(Report.id == report_id).first()
     if not report:
         raise HTTPException(404, "Report not found")
+    manifest = report.scan_manifest or load_manifest(report.tcga_barcode)
+    if not is_real_scan_manifest(manifest):
+        raise HTTPException(404, "No authentic scan page cached for this report")
     path = case_cache_dir(report.tcga_barcode) / filename
     if not path.exists():
         raise HTTPException(404, "Scan page not cached")

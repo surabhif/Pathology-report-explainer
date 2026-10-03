@@ -25,8 +25,8 @@ A small sample set is committed under `data/sample_reports.json`. The full ~9,50
 
 PathExplain owns the path from **scan page → OCR → structured facts → explanation**:
 
-0. **Scan pages** — Original pages are open-access TCGA pathology report PDFs on the NCI GDC (cached under `data/scan_cache/`).
-1. **Our OCR** — PathExplain OCR (default **Tesseract**; optional **xAI Grok vision**) produces machine-readable text tagged with engine + version. TCGA-Reports / Textract (Kefeli et al.) remains the **reference** transcript for CER/WER benchmarks and UI comparison — not claimed as PathExplain OCR.
+0. **Scan pages** — Authentic page images only: preferred source is the Tatonetti lab’s Textract-input JPEGs (range-fetched from `imgs_for_aws.zip` into `data/scan_cache/`); alternate source is NCI GDC pathology PDF page renders when GDC is available. OCR-text facsimiles are never shown on the public demo and are never used for CER/WER.
+1. **Our OCR** — PathExplain OCR (default **Tesseract**; optional **xAI Grok vision**) runs on authentic cached pages and is tagged with engine + version. TCGA-Reports / Textract (Kefeli et al.) remains the **reference** transcript for CER/WER benchmarks and UI comparison — not claimed as PathExplain OCR.
 2. **Structured extraction** — An LLM (or deterministic mock provider) returns JSON facts matching `backend/config/extraction_schema.json`, each with a source quote grounded in the chosen transcript (`text_source=our_ocr|reference`).
 3. **Grounded explanation** — A second step writes short sentences **only from extracted facts**, linking each sentence to its sources.
 4. **Glossary & reading level** — Medical terms are explained; Flesch–Kincaid grade is reported for the original report and the explanation (target: roughly 6th–8th grade).
@@ -55,8 +55,8 @@ Built into the product as roles and tasks:
 - Reading-level formulas are approximate.
 - TSS→cancer-type mapping for import is a curated subset and may mis-label rare edge cases until enriched via GDC.
 - English-only, TCGA-era report style.
-- Demo “scan” pages may be GDC PDF renders or honestly labeled OCR facsimiles when GDC was unreachable at cache time.
-- OCR quality depends on the engine: Tesseract is free but can err on dense/noisy pages; Grok vision costs tokens. CER/WER vs Textract is reported honestly on the Results dashboard.
+- Demo scan pages are authentic Tatonetti Textract inputs (or GDC PDF renders). Facsimile pages rendered from OCR text are excluded from scoring and from the public stage-1 UI.
+- OCR quality depends on the engine: Tesseract is free but can err on dense/noisy pages; Grok vision costs tokens. CER/WER vs Textract is reported only on real scans, with the count of real scans scored shown on the Results dashboard. Latest Tesseract run on 30 authentic Tatonetti pages: CER 0.293 (95% CI 0.180–0.405), WER 0.456 (95% CI 0.332–0.579).
 - Public demo does not accept uploads (PHI); admin test upload is explicitly acknowledged and does not store images.
 
 ## Disclaimer

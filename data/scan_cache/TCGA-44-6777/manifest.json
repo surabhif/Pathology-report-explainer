@@ -5,16 +5,21 @@
     {
       "page": 1,
       "filename": "page-01.jpg",
-      "width": 850,
-      "height": 1100,
-      "relpath": "TCGA-44-6777/page-01.jpg"
+      "width": 1400,
+      "height": 1812,
+      "relpath": "TCGA-44-6777/page-01.jpg",
+      "source_member": "imgs_for_aws/TCGA-44-6777.600a1078-21f2-4267-9d3c-03f292fa6a32_Page_1.jpg",
+      "source_bytes_raw": 1211969,
+      "source_bytes_cached": 185651
     }
   ],
-  "source": "ocr_text_facsimile",
-  "label": "Page facsimile from OCR text (GDC scan not cached)",
-  "citation": "Authentic open-access scans are TCGA pathology report PDFs on the NCI GDC. GDC was unreachable or returned no PDF during caching, so this demo shows a layout facsimile rendered from the publicly released TCGA-Reports OCR text. Re-run scripts/fetch_scan_pages.py when GDC is available to replace these images.",
-  "gdc_file_id": null,
-  "gdc_file_name": null,
-  "gdc_error": "HTTPStatusError",
-  "ocr_attribution": "Kefeli et al., TCGA-Reports (Patterns 2024) \u2014 machine-readable text via AWS Textract"
+  "source": "tatonetti_textract_input",
+  "label": "Original pathology report page image (Tatonetti lab / Textract input)",
+  "citation": "Page images published by the Tatonetti lab as the AWS Textract inputs for TCGA-Reports (Kefeli et al., Patterns 2024): https://tatonettilab-resources.s3.us-west-1.amazonaws.com/tcga-path-reports/imgs_for_aws.zip (members: imgs_for_aws/TCGA-44-6777.600a1078-21f2-4267-9d3c-03f292fa6a32_Page_1.jpg).",
+  "tatonetti_zip_url": "https://tatonettilab-resources.s3.us-west-1.amazonaws.com/tcga-path-reports/imgs_for_aws.zip",
+  "tatonetti_members": [
+    "imgs_for_aws/TCGA-44-6777.600a1078-21f2-4267-9d3c-03f292fa6a32_Page_1.jpg"
+  ],
+  "is_real_scan": true,
+  "scorable_for_ocr_benchmark": true
 }

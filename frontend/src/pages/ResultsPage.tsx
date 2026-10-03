@@ -66,6 +66,11 @@ function OcrBenchmarkPanel({ summary }: { summary: Record<string, unknown> }) {
   const overall = (summary.overall || {}) as Record<string, unknown>
   const byCancer = (summary.by_cancer_type || {}) as Record<string, Record<string, unknown>>
   const impact = (summary.extraction_impact || {}) as Record<string, unknown>
+  const nReal = summary.n_real_scans_scored
+  const nFacsimile = summary.n_facsimile_excluded
+  const nMissing = summary.n_missing_scan
+  const integrity =
+    typeof summary.integrity_note === 'string' ? summary.integrity_note : null
   const rows: MetricWithCI[] = []
   const cer = asMetric(overall.cer)
   const wer = asMetric(overall.wer)
@@ -83,6 +88,19 @@ function OcrBenchmarkPanel({ summary }: { summary: Record<string, unknown> }) {
   if (refAcc) rows.push(refAcc)
   return (
     <>
+      <p className="muted">
+        Real scans scored:{' '}
+        {typeof nReal === 'number' ? nReal : '—'}
+        {typeof nFacsimile === 'number' && nFacsimile > 0
+          ? ` · facsimiles excluded: ${nFacsimile}`
+          : ''}
+        {typeof nMissing === 'number' && nMissing > 0
+          ? ` · missing scans: ${nMissing}`
+          : ''}
+        . Only authentic page images (Tatonetti Textract inputs or GDC PDF renders) are scored —
+        OCR-text facsimiles are never included.
+      </p>
+      {integrity && <p className="muted">{integrity}</p>}
       <MetricTable rows={rows} />
       {typeof impact.note === 'string' && <p className="muted">{impact.note}</p>}
     </>
@@ -249,15 +267,19 @@ export function ResultsPage() {
             {data.ocr_benchmark?.summary ? (
               <>
                 <p className="muted">
-                  Engine: {data.ocr_benchmark.engine} / {data.ocr_benchmark.engine_version} · n=
-                  {data.ocr_benchmark.n_reports} · reference: {data.ocr_benchmark.reference}
+                  Engine: {data.ocr_benchmark.engine} / {data.ocr_benchmark.engine_version} ·
+                  reports considered: {data.ocr_benchmark.n_reports}
+                  {typeof data.ocr_benchmark.summary.n_real_scans_scored === 'number'
+                    ? ` · real scans scored: ${data.ocr_benchmark.summary.n_real_scans_scored}`
+                    : ''}{' '}
+                  · reference: {data.ocr_benchmark.reference}
                 </p>
                 <OcrBenchmarkPanel summary={data.ocr_benchmark.summary} />
               </>
             ) : (
               <p className="muted">
                 No OCR benchmark yet. Admins can run one from Admin → Run OCR benchmark (stratified
-                by cancer type; measures CER/WER and extraction impact).
+                by cancer type; CER/WER only on authentic scans, never OCR-text facsimiles).
               </p>
             )}
           </div>
