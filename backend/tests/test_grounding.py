@@ -178,3 +178,34 @@ def test_assess_sentence_grounding_helper():
         BRCA2_SNIPPET,
     )
     assert reasons == ["missing_quote"]
+
+
+def test_ocr_stray_period_quote_still_grounds():
+    """Colon-case OCR insert: 'free of. tumor' must match cleaned quote."""
+    from app.services.grounding import find_quote_span, quote_found_in_report
+
+    report = (
+        "The radial, vascular and bronchial margins of resection are free of. tumor. "
+        "Apical emphysematous changes."
+    )
+    quote = "free of tumor"
+    assert quote_found_in_report(quote, report)
+    span = find_quote_span(quote, report)
+    assert span is not None
+    assert report[span[0] : span[1]].lower().replace(" ", "").replace(".", "") == "freeoftumor"
+
+    explanation = {
+        "sentences": [
+            {
+                "sentence": "The margins are free of tumor.",
+                "source_fact_keys": ["margins"],
+                "quote": quote,
+            }
+        ]
+    }
+    result = unsupported_sentences(explanation, report)
+    assert result["pass"] is True
+    annotated = annotate_explanation_grounding(explanation, report)
+    g = annotated["sentences"][0]["grounding"]
+    assert g["ok"] is True
+    assert g["start_char"] < g["end_char"]

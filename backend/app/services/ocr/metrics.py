@@ -1,34 +1,15 @@
-"""Character / word error rates vs a reference transcript (TCGA-Reports / Textract)."""
+"""Character / word error rates vs a reference transcript (TCGA-Reports / Textract).
+
+Uses rapidfuzz's compiled Levenshtein distance so CER/WER stay off the
+critical path of the async event loop (see pipeline + to_thread).
+"""
 
 from __future__ import annotations
 
 import re
 from typing import Any
 
-
-def _levenshtein(a: list[str] | str, b: list[str] | str) -> int:
-    """Classic DP edit distance (works for chars or tokens)."""
-    if a == b:
-        return 0
-    if not a:
-        return len(b)
-    if not b:
-        return len(a)
-    # Ensure we iterate over sequences
-    n, m = len(a), len(b)
-    prev = list(range(m + 1))
-    for i, ca in enumerate(a, start=1):
-        cur = [i] + [0] * m
-        for j, cb in enumerate(b, start=1):
-            cost = 0 if ca == cb else 1
-            cur[j] = min(
-                prev[j] + 1,  # delete
-                cur[j - 1] + 1,  # insert
-                prev[j - 1] + cost,  # substitute
-            )
-        prev = cur
-    return prev[m]
-
+from rapidfuzz.distance import Levenshtein
 
 _WS = re.compile(r"\s+")
 
@@ -42,12 +23,22 @@ def tokenize_words(text: str) -> list[str]:
     return [t for t in re.split(r"\s+", (text or "").strip().lower()) if t]
 
 
+def _edit_distance(a: list[str] | str, b: list[str] | str) -> int:
+    if a == b:
+        return 0
+    if not a:
+        return len(b)
+    if not b:
+        return len(a)
+    return int(Levenshtein.distance(a, b))
+
+
 def character_error_rate(reference: str, hypothesis: str) -> float:
     ref = normalize_for_cer(reference)
     hyp = normalize_for_cer(hypothesis)
     if not ref:
         return 0.0 if not hyp else 1.0
-    return _levenshtein(ref, hyp) / len(ref)
+    return _edit_distance(ref, hyp) / len(ref)
 
 
 def word_error_rate(reference: str, hypothesis: str) -> float:
@@ -55,10 +46,11 @@ def word_error_rate(reference: str, hypothesis: str) -> float:
     hyp = tokenize_words(hypothesis)
     if not ref:
         return 0.0 if not hyp else 1.0
-    return _levenshtein(ref, hyp) / len(ref)
+    return _edit_distance(ref, hyp) / len(ref)
 
 
 def ocr_error_metrics(reference: str, hypothesis: str) -> dict[str, Any]:
+    """Sync CER/WER helper — call via ``asyncio.to_thread`` from async routes."""
     cer = character_error_rate(reference, hypothesis)
     wer = word_error_rate(reference, hypothesis)
     return {
@@ -71,33 +63,55 @@ def ocr_error_metrics(reference: str, hypothesis: str) -> dict[str, Any]:
     }
 
 
+def metrics_from_payload(payload: dict[str, Any] | None) -> dict[str, Any] | None:
+    """Reuse CER/WER already stored on a disk/DB OCR payload (avoid recomputing)."""
+    if not payload:
+        return None
+    meta = payload.get("meta") or {}
+    cer = payload.get("cer")
+    wer = payload.get("wer")
+    if cer is None:
+        cer = meta.get("cer")
+    if wer is None:
+        wer = meta.get("wer")
+    if cer is None or wer is None:
+        return None
+    out = {
+        "cer": float(cer),
+        "wer": float(wer),
+        "ref_chars": meta.get("ref_chars"),
+        "hyp_chars": meta.get("hyp_chars"),
+        "ref_words": meta.get("ref_words"),
+        "hyp_words": meta.get("hyp_words"),
+    }
+    return out
+
+
 def word_diff_spans(reference: str, hypothesis: str) -> dict[str, Any]:
-    """Simple word-level diff for UI highlighting (Myers-ish via LCS tokens)."""
+    """Word-level diff for UI highlighting via rapidfuzz opcodes."""
     ref_tokens = tokenize_words(reference)
     hyp_tokens = tokenize_words(hypothesis)
-    # LCS DP for alignment
-    n, m = len(ref_tokens), len(hyp_tokens)
-    dp = [[0] * (m + 1) for _ in range(n + 1)]
-    for i in range(1, n + 1):
-        for j in range(1, m + 1):
-            if ref_tokens[i - 1] == hyp_tokens[j - 1]:
-                dp[i][j] = dp[i - 1][j - 1] + 1
-            else:
-                dp[i][j] = max(dp[i - 1][j], dp[i][j - 1])
-    # Backtrack
     ops: list[dict[str, str]] = []
-    i, j = n, m
-    stack: list[dict[str, str]] = []
-    while i > 0 or j > 0:
-        if i > 0 and j > 0 and ref_tokens[i - 1] == hyp_tokens[j - 1]:
-            stack.append({"op": "equal", "ref": ref_tokens[i - 1], "hyp": hyp_tokens[j - 1]})
-            i -= 1
-            j -= 1
-        elif j > 0 and (i == 0 or dp[i][j - 1] >= dp[i - 1][j]):
-            stack.append({"op": "insert", "ref": "", "hyp": hyp_tokens[j - 1]})
-            j -= 1
-        else:
-            stack.append({"op": "delete", "ref": ref_tokens[i - 1], "hyp": ""})
-            i -= 1
-    ops = list(reversed(stack))
+    for tag, i1, i2, j1, j2 in Levenshtein.opcodes(ref_tokens, hyp_tokens):
+        if tag == "equal":
+            for k in range(i2 - i1):
+                ops.append(
+                    {
+                        "op": "equal",
+                        "ref": ref_tokens[i1 + k],
+                        "hyp": hyp_tokens[j1 + k],
+                    }
+                )
+        elif tag == "replace":
+            # Emit deletes then inserts so the UI can render both sides.
+            for k in range(i1, i2):
+                ops.append({"op": "delete", "ref": ref_tokens[k], "hyp": ""})
+            for k in range(j1, j2):
+                ops.append({"op": "insert", "ref": "", "hyp": hyp_tokens[k]})
+        elif tag == "delete":
+            for k in range(i1, i2):
+                ops.append({"op": "delete", "ref": ref_tokens[k], "hyp": ""})
+        elif tag == "insert":
+            for k in range(j1, j2):
+                ops.append({"op": "insert", "ref": "", "hyp": hyp_tokens[k]})
     return {"ops": ops, "changed": sum(1 for o in ops if o["op"] != "equal")}

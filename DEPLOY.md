@@ -57,6 +57,10 @@ bash scripts/verify_docker_image.sh
 
 The Dockerfile installs `tesseract-ocr` + English trained data so `OCR_ENGINE=tesseract` works on Render’s free tier without a paid OCR API.
 
+**Public Stage 2 uses precomputed OCR only.** Committed Tesseract output for the 30 real-scan cases lives under `data/ocr_cache/` (bundled in the image). Website visitors never trigger live Tesseract. Live / forced OCR is **admin-only** (`POST /api/admin/ocr/run`) behind `OCR_MAX_CONCURRENT` / `OCR_MAX_QUEUE`.
+
+**CPU (Render free ≈0.15):** Live Tesseract is ~2.5–3 min/page. CER/WER use compiled `rapidfuzz` Levenshtein and run off the asyncio event loop (`asyncio.to_thread`) so `/api/health` keeps answering. Prefer importing the committed benchmark (`POST /api/admin/ocr/import-benchmark` or seed) instead of re-running live OCR in production.
+
 **Memory (Render free ≈512 MB):** Tesseract on our ~1400px page images typically peaks around **150–250 MB RSS per job**. Concurrent OCR can OOM the instance, so the image defaults to `OCR_MAX_CONCURRENT=1` with `OCR_MAX_QUEUE=2`. Extra callers receive **HTTP 429** (`code=ocr_busy`) until a slot frees. Do not raise concurrency on the free tier without measuring RSS.
 
 ### Option B — Native Python (no system Tesseract, no bundled `data/` from Docker)
@@ -88,9 +92,9 @@ Health check path: `/api/health` → `{"ok": true, "provider": …}`.
 | `LLM_BASE_URL` | Optional | `https://api.x.ai/v1` |
 | `LLM_TIMEOUT_SECONDS` | Optional | Default `120`. Raise if you use a slow reasoning model |
 | `OCR_ENGINE` | Optional | Default `tesseract`. Also `xai_vision` or `mock` |
-| `OCR_MAX_PAGES` | Optional | Default `2` (cost/latency bound) |
+| `OCR_MAX_PAGES` | Optional | Default **`1`** for live admin runs (precomputed OCR ignores this; ~3 min/page on free CPU) |
 | `OCR_MAX_CONCURRENT` | Optional | Default `1` — keep at 1 on Render free (512 MB) |
-| `OCR_MAX_QUEUE` | Optional | Default `2` waiters; beyond this OCR returns **429** |
+| `OCR_MAX_QUEUE` | Optional | Default `2` waiters; beyond this live OCR returns **429** |
 | `OCR_VISION_MODEL` | Optional | Empty → LLM/xAI default model |
 | `OCR_VISION_DETAIL` | Optional | `low` (default, cheaper) \| `high` \| `auto` |
 | `DATA_DIR` | Optional | Default `/srv/data` in Docker; repo-root `data/` locally |
@@ -107,10 +111,11 @@ Invite clinicians from the Admin UI when demo tokens are not used.
 **Render (required for Tesseract default + scan data):**
 1. Switch the Web Service from Native Python → **Docker**.
 2. Clear **Root Directory** (empty = repo root). Set **Dockerfile Path** to `./backend/Dockerfile`.
-3. Confirm `DATA_DIR=/srv/data` (image default) so Stage 1 / OCR see `sample_reports.json` + `scan_cache/`.
-4. Keep `OCR_MAX_CONCURRENT=1` on the free tier; raise only after measuring memory.
-5. Add OCR env vars if you want Grok vision instead: `OCR_ENGINE=xai_vision`, keep `LLM_API_KEY`.
-6. Redeploy manually after merge.
+3. Confirm `DATA_DIR=/srv/data` (image default) so Stage 1 / OCR see `sample_reports.json` + `scan_cache/` + `ocr_cache/`.
+4. Keep `OCR_MAX_CONCURRENT=1` and `OCR_MAX_PAGES=1` on the free tier; raise only after measuring memory/CPU.
+5. After deploy (or if Results OCR is empty), ensure seed ran **or** call admin `POST /api/admin/ocr/import-benchmark` so Results shows `n_real_scans_scored=30` from `data/ocr_benchmark_latest.json`.
+6. Add OCR env vars if you want Grok vision instead: `OCR_ENGINE=xai_vision`, keep `LLM_API_KEY`.
+7. Redeploy manually after merge. Public Stage 2 serves precomputed OCR — do not force live Tesseract for visitors.
 
 **Vercel:** no new env vars required for OCR (OCR runs only on the API). Existing `VITE_API_BASE_URL` is enough.
 

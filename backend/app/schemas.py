@@ -127,6 +127,9 @@ class OurOcrOut(BaseModel):
     cer: float | None = None  # vs TCGA-Reports reference
     wer: float | None = None
     page_count: int = 0
+    # precomputed = committed offline OCR; live = admin-triggered Tesseract/vision
+    source: str = "precomputed"  # precomputed | live
+    precomputed_at: str | None = None
     label: str = "Our OCR (PathExplain)"
     note: str = (
         "Transcribed by PathExplain from cached scan page images. "
@@ -402,6 +405,9 @@ class OcrRunOut(BaseModel):
     wer: float | None = None
     pages: list[dict[str, Any]] = Field(default_factory=list)
     created_at: datetime | None = None
+    source: str = "precomputed"  # precomputed | live
+    precomputed_at: str | None = None
+    precomputed: bool = True
 
 
 class OcrBenchmarkOut(BaseModel):

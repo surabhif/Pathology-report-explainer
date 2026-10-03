@@ -159,12 +159,32 @@ export const api = {
     return request<ReportJourneyOut>(`/api/public/reports/${reportId}/journey`)
   },
 
-  runReportOcr(reportId: number, engine?: string, force = false) {
+  runReportOcr(reportId: number, engine?: string) {
     const params = new URLSearchParams()
     if (engine) params.set('engine', engine)
-    if (force) params.set('force', 'true')
     const q = params.toString() ? `?${params.toString()}` : ''
     return request<OcrRunOut>(`/api/public/reports/${reportId}/ocr${q}`)
+  },
+
+  adminRunOcr(reportId: number, engine?: string, force = true) {
+    const params = new URLSearchParams()
+    params.set('report_id', String(reportId))
+    if (engine) params.set('engine', engine)
+    if (force) params.set('force', 'true')
+    return request<OcrRunOut>(`/api/admin/ocr/run?${params.toString()}`, { method: 'POST' }, true)
+  },
+
+  importOcrBenchmark(force = false) {
+    const q = force ? '?force=true' : ''
+    return request<{
+      benchmark_id: number
+      engine: string
+      engine_version: string
+      summary: Record<string, unknown>
+      n_reports: number
+      n_real_scans_scored?: number
+      seeded_from?: string
+    }>(`/api/admin/ocr/import-benchmark${q}`, { method: 'POST' }, true)
   },
 
   getOcrDiff(reportId: number, engine?: string) {
@@ -183,6 +203,7 @@ export const api = {
       engine_version: string
       summary: Record<string, unknown>
       n_reports: number
+      n_real_scans_scored?: number
     }>(`/api/admin/ocr/benchmark${q}`, { method: 'POST' }, true)
   },
 

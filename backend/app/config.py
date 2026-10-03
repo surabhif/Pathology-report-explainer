@@ -61,8 +61,9 @@ class Settings(BaseSettings):
     # --- OCR (scan → text) ---
     # OCR_ENGINE: tesseract (default, free) | xai_vision | mock
     ocr_engine: str = "tesseract"
-    # Max pages to OCR per report (keep bounded for cost/latency).
-    ocr_max_pages: int = 2
+    # Max pages to OCR per **live** admin run (precomputed OCR ignores this).
+    # Default 1 keeps Render free-tier (0.1–0.15 CPU) under ~3 min / request.
+    ocr_max_pages: int = 1
     # Vision model override (empty → use LLM_MODEL / xAI default).
     ocr_vision_model: str = ""
     # image detail for xAI vision: low (cheap) | high | auto

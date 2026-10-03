@@ -11,7 +11,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     DATA_DIR=/srv/data \
     # Cap concurrent Tesseract jobs (Render free tier ≈512 MB RAM).
     OCR_MAX_CONCURRENT=1 \
-    OCR_MAX_QUEUE=2
+    OCR_MAX_QUEUE=2 \
+    OCR_MAX_PAGES=1
 
 # System OCR package (required for OCR_ENGINE=tesseract default).
 RUN apt-get update \

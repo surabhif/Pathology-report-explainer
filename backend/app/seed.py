@@ -491,8 +491,36 @@ async def seed_all(db: Session) -> None:
     _seed_prompts(db)
     _seed_rubric(db)
     reports = _seed_reports(db)
+    _seed_precomputed_ocr(db, reports)
+    _seed_ocr_benchmark(db)
     if users.get("annotator") and users.get("clinician"):
         await _seed_batches_and_generations(db, users, reports)
     else:
         logger.info("seed.batches skipped (demo annotator/clinician not seeded)")
     logger.info("seed.done users=%d reports=%d", len(users), len(reports))
+
+
+def _seed_precomputed_ocr(db: Session, reports: list[Report]) -> None:
+    """Attach committed disk-cache OCR to each report (no live Tesseract)."""
+    from app.services.ocr.pipeline import ensure_precomputed_ocr_run
+
+    n = 0
+    for report in reports:
+        run = ensure_precomputed_ocr_run(db, report, engine="tesseract")
+        if run:
+            n += 1
+    logger.info("seed.precomputed_ocr runs=%d / reports=%d", n, len(reports))
+
+
+def _seed_ocr_benchmark(db: Session) -> None:
+    """Ensure Results shows the committed n=30 real-scan OCR benchmark."""
+    from app.services.ocr.benchmark_import import ensure_ocr_benchmark_seeded
+
+    run = ensure_ocr_benchmark_seeded(db)
+    if run:
+        summary = (run.results_json or {}).get("summary") or {}
+        logger.info(
+            "seed.ocr_benchmark id=%s n_real=%s",
+            run.id,
+            summary.get("n_real_scans_scored"),
+        )

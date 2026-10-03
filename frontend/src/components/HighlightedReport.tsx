@@ -1,6 +1,8 @@
 /**
  * Renders report text with an optional highlighted quote span.
- * Prefer character offsets from FactSpan; fall back to first quote match.
+ * Prefer character offsets from FactSpan; fall back to normalized quote match
+ * (lowercase, collapse whitespace, strip punctuation) so OCR stray periods
+ * like "free of. tumor" still highlight when the model quote omits them.
  */
 
 interface Props {
@@ -10,23 +12,66 @@ interface Props {
   endChar?: number | null
 }
 
+function findNormalizedSpan(text: string, quote: string): { start: number; end: number } | null {
+  const exact = text.indexOf(quote)
+  if (exact >= 0) return { start: exact, end: exact + quote.length }
+  const lowerIdx = text.toLowerCase().indexOf(quote.toLowerCase())
+  if (lowerIdx >= 0) return { start: lowerIdx, end: lowerIdx + quote.length }
+
+  const isPunct = (ch: string) => /[!"#$%&'()*+,\-./:;<=>?@[\\\]^_`{|}~]/.test(ch)
+  const normChars: string[] = []
+  const indexMap: number[] = []
+  let prevSpace = true
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i]
+    const low = ch.toLowerCase()
+    if (isPunct(ch)) {
+      if (!prevSpace && normChars.length) {
+        normChars.push(' ')
+        indexMap.push(i)
+        prevSpace = true
+      }
+      continue
+    }
+    if (/\s/.test(ch)) {
+      if (!prevSpace && normChars.length) {
+        normChars.push(' ')
+        indexMap.push(i)
+        prevSpace = true
+      }
+      continue
+    }
+    normChars.push(low)
+    indexMap.push(i)
+    prevSpace = false
+  }
+  if (normChars.length && normChars[normChars.length - 1] === ' ') {
+    normChars.pop()
+    indexMap.pop()
+  }
+  const normReport = normChars.join('')
+  const normQuote = quote
+    .toLowerCase()
+    .replace(/[!"#$%&'()*+,\-./:;<=>?@[\\\]^_`{|}~]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+  if (!normQuote || !normReport) return null
+  const pos = normReport.indexOf(normQuote)
+  if (pos < 0) return null
+  const start = indexMap[pos]
+  const end = indexMap[pos + normQuote.length - 1] + 1
+  return { start, end }
+}
+
 export function HighlightedReport({ text, highlightQuote, startChar, endChar }: Props) {
   let start = startChar ?? null
   let end = endChar ?? null
 
   if ((start == null || end == null) && highlightQuote) {
-    const idx = text.indexOf(highlightQuote)
-    if (idx >= 0) {
-      start = idx
-      end = idx + highlightQuote.length
-    } else {
-      const lower = text.toLowerCase()
-      const q = highlightQuote.toLowerCase()
-      const i = lower.indexOf(q)
-      if (i >= 0) {
-        start = i
-        end = i + highlightQuote.length
-      }
+    const span = findNormalizedSpan(text, highlightQuote)
+    if (span) {
+      start = span.start
+      end = span.end
     }
   }
 

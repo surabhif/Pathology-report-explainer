@@ -269,7 +269,11 @@ async def ocr_benchmark(
     engine: str | None = None,
     force: bool = False,
 ) -> dict:
-    """Run stratified OCR benchmark vs TCGA-Reports (Textract) + extraction impact."""
+    """Run stratified OCR benchmark vs TCGA-Reports (Textract) + extraction impact.
+
+    Warning: live OCR on free-tier Render is slow — prefer
+    ``POST /api/admin/ocr/import-benchmark`` to load the committed n=30 results.
+    """
     from app.services.ocr.benchmark import run_ocr_benchmark
 
     try:
@@ -286,6 +290,75 @@ async def ocr_benchmark(
         "n_real_scans_scored": summary.get("n_real_scans_scored"),
         "n_facsimile_excluded": summary.get("n_facsimile_excluded"),
     }
+
+
+@router.post("/ocr/import-benchmark")
+def import_ocr_benchmark(
+    db: DbDep,
+    _admin: AdminUser,
+    force: bool = False,
+) -> dict:
+    """Load ``data/ocr_benchmark_latest.json`` into ``ocr_benchmark_runs`` (no live OCR)."""
+    from app.services.ocr.benchmark_import import import_ocr_benchmark_from_json
+
+    try:
+        run = import_ocr_benchmark_from_json(db, force=force)
+    except FileNotFoundError as exc:
+        raise HTTPException(404, str(exc)) from exc
+    summary = (run.results_json or {}).get("summary") or {}
+    return {
+        "benchmark_id": run.id,
+        "engine": run.engine,
+        "engine_version": run.engine_version,
+        "summary": summary,
+        "n_reports": len(run.report_ids or []),
+        "n_real_scans_scored": summary.get("n_real_scans_scored"),
+        "n_facsimile_excluded": summary.get("n_facsimile_excluded"),
+        "seeded_from": summary.get("seeded_from"),
+    }
+
+
+@router.post("/ocr/run")
+async def admin_run_ocr(
+    db: DbDep,
+    _admin: AdminUser,
+    report_id: int,
+    engine: str | None = None,
+    force: bool = True,
+    max_pages: int | None = None,
+) -> dict:
+    """Admin-only **live** OCR (Tesseract/vision) for one report.
+
+    Public visitors never hit this path. Honors OCR_MAX_CONCURRENT / OCR_MAX_QUEUE
+    and defaults ``OCR_MAX_PAGES=1`` on free tier.
+    """
+    from app.models import Report
+    from app.routers.public import _ocr_run_out
+    from app.services.ocr.pipeline import run_ocr_on_report
+
+    report = db.query(Report).filter(Report.id == report_id).first()
+    if not report:
+        raise HTTPException(404, "Report not found")
+    try:
+        run = await run_ocr_on_report(
+            db,
+            report,
+            engine_name=engine,
+            force=force,
+            max_pages=max_pages,
+            allow_live=True,
+        )
+    except FileNotFoundError as exc:
+        raise HTTPException(404, str(exc)) from exc
+    except PermissionError as exc:
+        raise HTTPException(403, str(exc)) from exc
+    except OcrBusyError as exc:
+        raise HTTPException(
+            status_code=429,
+            detail={"message": str(exc), "code": exc.code},
+        ) from exc
+    return _ocr_run_out(run).model_dump(mode="json")
+
 
 
 @router.post("/ocr/upload-test")

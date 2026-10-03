@@ -4,11 +4,15 @@
 
 - Public demo: BRCA / COAD / LUAD → **three-stage journey** (authentic cached scan → **Our OCR** vs Textract reference + diff → fact sheet + grounded explanation); stage 1 hidden when no real scan
 - PathExplain OCR: configurable `OCR_ENGINE` (**tesseract** default, **xai_vision** optional), engine/version tags, timing, cost estimate, disk+DB cache; refuses facsimile pages
+- **Public Stage 2 = precomputed OCR only** (committed under `data/ocr_cache/` for 30 real scans + stored CER/WER). UI labels precomputed (date/engine) vs live. Live/forced Tesseract is **admin-only** behind queue limits; default `OCR_MAX_PAGES=1`
+- CER/WER via **rapidfuzz** Levenshtein, computed off the event loop (`asyncio.to_thread`) so `/api/health` stays up on Render free; cached metrics reused from disk/`ocr_runs`
 - OCR benchmark vs TCGA-Reports on **real scans only** (CER/WER + CIs + extraction-impact); facsimiles excluded; Results shows `n_real_scans_scored`
   - Latest Tesseract (`tesseract-5.3.4`) on 30 Tatonetti pages: **CER 0.293** [0.180, 0.405], **WER 0.456** [0.332, 0.579] (`data/ocr_benchmark_latest.json`)
+  - Seed + admin `POST /api/admin/ocr/import-benchmark` load that file into `ocr_benchmark_runs` (idempotent)
+- Exact-quote grounding normalizes lowercase / whitespace / punctuation (e.g. OCR `free of. tumor` ↔ quote `free of tumor`) while preserving original highlight spans — not fuzzy semantic matching
 - No free-text paste box; admin-only de-identified upload test (no image retention)
 - Invite-token auth with roles admin / annotator / clinician
-- Admin: users/invites, evaluation sets, batches, progress, auto-check job, OCR benchmark
+- Admin: users/invites, evaluation sets, batches, progress, auto-check job, OCR benchmark import + live run
 - Annotator labeling (model output hidden)
 - Clinician blinded review (1–5 scores, flags, comments; rubric file-editable)
 - Auto-checks: field accuracy vs gold, TCGA metadata agreement, number grounding, unsupported sentences, reading level
@@ -20,7 +24,7 @@
 - Seed data, sample TCGA JSON, download/import script
 - Tests (backend + frontend), GitHub Actions CI
 - Docs: README, DESIGN, DEPLOY (Docker + Tesseract), ABOUT/model card
-- `backend/Dockerfile` for Render free-tier Tesseract (build from **repo root** so `data/` is bundled; `OCR_MAX_CONCURRENT=1` for 512 MB)
+- `backend/Dockerfile` for Render free-tier Tesseract (build from **repo root** so `data/` is bundled; `OCR_MAX_CONCURRENT=1`, `OCR_MAX_PAGES=1` for 512 MB / 0.15 CPU)
 - CI job builds the Docker image and asserts `sample_reports.json` (≥30) + `scan_cache` are present
 
 ## Thin / stubbed (intentional for days-not-weeks)
@@ -29,7 +33,7 @@
 - **Scan source:** demo pages are Tatonetti Textract-input images (range-fetched); GDC PDF remains an alternate when GDC is up. Facsimiles are unscorable and not shown publicly.
 - **Scan-region highlight:** omitted without Textract bounding boxes; OCR-text quote highlight is implemented.
 - **Native Render without Docker:** Tesseract unavailable — switch the Render service to **Docker** with empty Root Directory + Dockerfile Path `./backend/Dockerfile` (see `DEPLOY.md`), or set `OCR_ENGINE=xai_vision`/`mock`.
-- **Render free memory:** keep `OCR_MAX_CONCURRENT=1` (≈150–250 MB per Tesseract job); overflow returns HTTP 429.
+- **Render free CPU/memory:** keep `OCR_MAX_CONCURRENT=1` and `OCR_MAX_PAGES=1`; visitors use precomputed OCR. Live admin OCR is ~2.5–3 min/page; overflow returns HTTP 429.
 - **Alembic:** initial migration present; local MVP uses SQLAlchemy `create_all` on startup.
 - **Magic-link email delivery:** invite tokens work; no SMTP/sendgrid — admin copies tokens.
 - **Inter-rater:** computed when ≥2 clinicians score the same generation; seed only assigns one clinician (metric appears after dual assignment).

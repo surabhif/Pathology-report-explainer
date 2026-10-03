@@ -99,7 +99,7 @@ async def run_ocr_benchmark(
 
         try:
             ocr_run = await run_ocr_on_report(
-                db, report, engine_name=engine_name or "tesseract", force=force
+                db, report, engine_name=engine_name or "tesseract", force=force, allow_live=True
             )
         except FileNotFoundError as exc:
             n_missing += 1
@@ -118,7 +118,18 @@ async def run_ocr_benchmark(
         n_real += 1
         engine_tag = ocr_run.engine
         engine_version = ocr_run.engine_version
-        metrics = ocr_error_metrics(report.report_text, ocr_run.text)
+        # Reuse CER/WER persisted on the OCR run (avoid recompute on the loop).
+        if ocr_run.cer is not None and ocr_run.wer is not None:
+            metrics = {
+                "cer": float(ocr_run.cer),
+                "wer": float(ocr_run.wer),
+                **{
+                    k: (ocr_run.meta_json or {}).get(k)
+                    for k in ("ref_chars", "hyp_chars", "ref_words", "hyp_words")
+                },
+            }
+        else:
+            metrics = ocr_error_metrics(report.report_text, ocr_run.text)
         by_cancer_cers[report.cancer_type].append(metrics["cer"])
         by_cancer_wers[report.cancer_type].append(metrics["wer"])
 

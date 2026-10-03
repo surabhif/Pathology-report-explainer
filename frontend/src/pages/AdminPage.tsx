@@ -450,16 +450,31 @@ export function AdminPage() {
           OCR benchmark
         </h2>
         <p className="muted">
-          Run PathExplain OCR (default Tesseract) on cached authentic scan pages only (Tatonetti
-          Textract inputs or GDC PDF renders). OCR-text facsimiles are excluded — they are circular
-          vs the Textract reference. Reports CER/WER with 95% CIs and extraction-impact vs gold when
-          labels exist. Results appear on the Results dashboard. Public demo never accepts arbitrary
-          uploads (PHI).
+          Prefer importing the committed real-scan benchmark (n=30, CER≈0.293 / WER≈0.456) so Results
+          populates without live Tesseract. Live runs on Render free tier take minutes per page and
+          can trip health checks — use only when regenerating. Facsimiles stay excluded. Public demo
+          never accepts arbitrary uploads (PHI).
         </p>
         <div className="row">
           <button
             type="button"
             className="btn btn-primary"
+            onClick={() =>
+              void wrap(async () => {
+                const res = await api.importOcrBenchmark(false)
+                setMessage(
+                  `Imported OCR benchmark #${res.benchmark_id} · n_real_scans_scored=${
+                    res.n_real_scans_scored ?? '—'
+                  } (${res.seeded_from ?? 'ocr_benchmark_latest.json'}).`,
+                )
+              })
+            }
+          >
+            Import committed benchmark
+          </button>
+          <button
+            type="button"
+            className="btn btn-ghost"
             onClick={() =>
               void wrap(async () => {
                 const res = await api.runOcrBenchmark('tesseract')
@@ -469,13 +484,14 @@ export function AdminPage() {
               })
             }
           >
-            Run OCR benchmark (Tesseract)
+            Run live OCR benchmark (slow)
           </button>
         </div>
         <p className="muted" style={{ fontSize: '0.85rem', marginTop: '0.75rem' }}>
-          Admin-only test upload (de-identified / TCGA pages only) is available via{' '}
+          Live OCR for one report: <code>POST /api/admin/ocr/run?report_id=…&amp;force=true</code>.
+          Admin-only test upload (de-identified / TCGA pages only):{' '}
           <code>POST /api/admin/ocr/upload-test</code> with <code>acknowledge_deidentified=true</code>
-          . Image bytes are not stored.
+          . Image bytes are not stored. Default <code>OCR_MAX_PAGES=1</code> for live runs.
         </p>
       </div>
     </div>

@@ -80,6 +80,8 @@ export interface OurOcrOut {
   cer?: number | null
   wer?: number | null
   page_count?: number
+  source?: 'precomputed' | 'live' | string
+  precomputed_at?: string | null
   label?: string
   note?: string
 }
@@ -116,6 +118,9 @@ export interface OcrRunOut {
   wer?: number | null
   pages?: Array<Record<string, unknown>>
   created_at?: string | null
+  source?: 'precomputed' | 'live' | string
+  precomputed_at?: string | null
+  precomputed?: boolean
 }
 
 export interface OcrDiffOut {

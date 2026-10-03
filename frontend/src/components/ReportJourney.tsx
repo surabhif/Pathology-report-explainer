@@ -77,6 +77,7 @@ export function ReportJourney({
     setOcrLoading(true)
     setOcrError(null)
     try {
+      // Public path: precomputed OCR only (never live Tesseract).
       const run = await api.runReportOcr(journey.report_id, journey.default_ocr_engine)
       const mapped: OurOcrOut = {
         ocr_run_id: run.id,
@@ -89,8 +90,18 @@ export function ReportJourney({
         cer: run.cer,
         wer: run.wer,
         page_count: run.pages?.length ?? 0,
-        label: 'Our OCR (PathExplain)',
-        note: 'Transcribed by PathExplain from cached scan page images.',
+        source: run.source ?? (run.precomputed === false ? 'live' : 'precomputed'),
+        precomputed_at: run.precomputed_at ?? null,
+        label:
+          run.source === 'live' || run.precomputed === false
+            ? 'Our OCR (live)'
+            : 'Our OCR (precomputed)',
+        note:
+          run.source === 'live' || run.precomputed === false
+            ? `Live PathExplain OCR (${run.engine} / ${run.engine_version}).`
+            : `Precomputed PathExplain OCR (${run.engine} / ${run.engine_version}${
+                run.precomputed_at ? `, generated ${run.precomputed_at}` : ''
+              }). Visitors never trigger live Tesseract.`,
       }
       setOurOcr(mapped)
       return mapped
@@ -233,11 +244,15 @@ export function ReportJourney({
                 </button>
               )}
             </div>
-            {ocrLoading && <p className="muted">Running OCR on cached scan pages…</p>}
+            {ocrLoading && <p className="muted">Loading precomputed OCR…</p>}
             {ocrError && <p className="error-text">{ocrError}</p>}
             {ocrView === 'our' && ourOcr && (
               <p className="muted">
-                Engine: {ourOcr.engine} / {ourOcr.engine_version}
+                {ourOcr.source === 'live'
+                  ? 'Live OCR (admin-triggered)'
+                  : 'Precomputed OCR (offline)'}:{' '}
+                {ourOcr.engine} / {ourOcr.engine_version}
+                {ourOcr.precomputed_at ? ` · generated ${ourOcr.precomputed_at}` : ''}
                 {ourOcr.duration_ms != null ? ` · ${Math.round(ourOcr.duration_ms)} ms` : ''}
                 {ourOcr.estimated_cost_usd != null
                   ? ` · est. $${ourOcr.estimated_cost_usd.toFixed(4)}`
@@ -247,6 +262,7 @@ export function ReportJourney({
                 reference)
               </p>
             )}
+            {ocrView === 'our' && ourOcr?.note && <p className="muted">{ourOcr.note}</p>}
             {ocrView === 'reference' && (
               <p className="muted">
                 Citation: {journey.ocr_citation} This is the reference transcript for CER/WER — not

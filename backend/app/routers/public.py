@@ -30,9 +30,8 @@ from app.services.extraction import extract_facts
 from app.services.glossary import load_glossary
 from app.services.llm.errors import LLMServiceError
 from app.services.llm.factory import get_llm_provider
-from app.services.ocr.concurrency import OcrBusyError
 from app.services.ocr.metrics import ocr_error_metrics, word_diff_spans
-from app.services.ocr.pipeline import latest_ocr_run, run_ocr_on_report
+from app.services.ocr.pipeline import latest_ocr_run
 from app.services.rate_limit import client_ip_key
 from app.services.reading_level import explanation_text_from_payload, flesch_kincaid_grade
 from app.services.scan_assets import case_cache_dir, is_real_scan_manifest, load_manifest
@@ -181,8 +180,32 @@ def get_report(report_id: int, db: Session = Depends(get_db)) -> ReportDetail:
     return ReportDetail.model_validate(report)
 
 
+def _ocr_source_fields(run: OcrRun) -> tuple[str, str | None, bool]:
+    meta = run.meta_json or {}
+    precomputed = bool(meta.get("precomputed", True))
+    source = "precomputed" if precomputed else "live"
+    precomputed_at = meta.get("precomputed_at")
+    if precomputed_at is None and precomputed and run.created_at:
+        precomputed_at = run.created_at.isoformat()
+    return source, precomputed_at, precomputed
+
+
 def _our_ocr_out(run: OcrRun) -> OurOcrOut:
     pages = run.pages_json or []
+    source, precomputed_at, precomputed = _ocr_source_fields(run)
+    if precomputed:
+        note = (
+            f"Precomputed PathExplain OCR ({run.engine} / {run.engine_version}"
+            + (f", generated {precomputed_at}" if precomputed_at else "")
+            + "). Generated offline — visitors never trigger live Tesseract."
+        )
+        label = "Our OCR (precomputed)"
+    else:
+        note = (
+            f"Live PathExplain OCR ({run.engine} / {run.engine_version}). "
+            "Admin-triggered on this instance."
+        )
+        label = "Our OCR (live)"
     return OurOcrOut(
         ocr_run_id=run.id,
         engine=run.engine,
@@ -194,6 +217,31 @@ def _our_ocr_out(run: OcrRun) -> OurOcrOut:
         cer=run.cer,
         wer=run.wer,
         page_count=len(pages),
+        source=source,
+        precomputed_at=precomputed_at,
+        label=label,
+        note=note,
+    )
+
+
+def _ocr_run_out(run: OcrRun) -> OcrRunOut:
+    source, precomputed_at, precomputed = _ocr_source_fields(run)
+    return OcrRunOut(
+        id=run.id,
+        report_id=run.report_id,
+        engine=run.engine,
+        engine_version=run.engine_version,
+        model=run.model,
+        text=run.text,
+        duration_ms=run.duration_ms,
+        estimated_cost_usd=run.estimated_cost_usd,
+        cer=run.cer,
+        wer=run.wer,
+        pages=list(run.pages_json or []),
+        created_at=run.created_at,
+        source=source,
+        precomputed_at=precomputed_at,
+        precomputed=precomputed,
     )
 
 
@@ -218,9 +266,10 @@ def _journey_for_report(report: Report, db: Session | None = None) -> ReportJour
             )
     our: OurOcrOut | None = None
     if db is not None:
-        run = latest_ocr_run(db, report.id, engine=settings.ocr_engine) or latest_ocr_run(
-            db, report.id
-        )
+        # Prefer committed precomputed OCR — never kick off live Tesseract here.
+        from app.services.ocr.pipeline import get_precomputed_ocr
+
+        run = get_precomputed_ocr(db, report, engine=settings.ocr_engine)
         if run:
             our = _our_ocr_out(run)
     return ReportJourneyOut(
@@ -256,56 +305,52 @@ async def report_ocr(
     report_id: int,
     db: Session = Depends(get_db),
     engine: str | None = None,
-    force: bool = False,
 ) -> OcrRunOut:
-    """Run (or return cached) PathExplain OCR on demo scan pages — no arbitrary uploads."""
+    """Return **precomputed** PathExplain OCR for a demo report.
+
+    Live / forced Tesseract is admin-only (``POST /api/admin/ocr/run``) so
+    Render free-tier visitors never block the event loop or OOM the instance.
+    """
+    from app.services.ocr.pipeline import get_precomputed_ocr
+
     report = db.query(Report).filter(Report.id == report_id).first()
     if not report:
         raise HTTPException(404, "Report not found")
-    try:
-        run = await run_ocr_on_report(db, report, engine_name=engine, force=force)
-    except FileNotFoundError as exc:
-        raise HTTPException(404, str(exc)) from exc
-    except OcrBusyError as exc:
+    run = get_precomputed_ocr(db, report, engine=engine)
+    if not run:
         raise HTTPException(
-            status_code=429,
-            detail={"message": str(exc), "code": exc.code},
-        ) from exc
-    except LLMServiceError as exc:
-        status = 504 if "timeout" in exc.code else 502
-        raise HTTPException(status_code=status, detail={"message": exc.message, "code": exc.code}) from exc
-    return OcrRunOut(
-        id=run.id,
-        report_id=run.report_id,
-        engine=run.engine,
-        engine_version=run.engine_version,
-        model=run.model,
-        text=run.text,
-        duration_ms=run.duration_ms,
-        estimated_cost_usd=run.estimated_cost_usd,
-        cer=run.cer,
-        wer=run.wer,
-        pages=list(run.pages_json or []),
-        created_at=run.created_at,
-    )
+            404,
+            "No precomputed OCR for this report. "
+            "Public demo does not run live Tesseract — ask an admin to import "
+            "or generate offline OCR.",
+        )
+    return _ocr_run_out(run)
 
 
 @router.get("/reports/{report_id}/ocr/diff", response_model=OcrDiffOut)
-def report_ocr_diff(
+async def report_ocr_diff(
     report_id: int,
     db: Session = Depends(get_db),
     engine: str | None = None,
 ) -> OcrDiffOut:
     """Word-level diff between TCGA-Reports reference text and our OCR."""
+    import asyncio
+
     report = db.query(Report).filter(Report.id == report_id).first()
     if not report:
         raise HTTPException(404, "Report not found")
     run = latest_ocr_run(db, report.id, engine=engine) or latest_ocr_run(db, report.id)
     if not run:
         raise HTTPException(404, "No OCR run yet — call /ocr first")
-    diff = word_diff_spans(report.report_text, run.text)
-    metrics = ocr_error_metrics(report.report_text, run.text)
-    return OcrDiffOut(ops=diff["ops"], changed=diff["changed"], cer=metrics["cer"], wer=metrics["wer"])
+    diff = await asyncio.to_thread(word_diff_spans, report.report_text, run.text)
+    # Prefer stored CER/WER — do not recompute on the request path.
+    cer = run.cer
+    wer = run.wer
+    if cer is None or wer is None:
+        metrics = await asyncio.to_thread(ocr_error_metrics, report.report_text, run.text)
+        cer = metrics["cer"]
+        wer = metrics["wer"]
+    return OcrDiffOut(ops=diff["ops"], changed=diff["changed"], cer=cer, wer=wer)
 
 
 @router.get("/reports/{report_id}/scan-pages/{filename}")
@@ -389,14 +434,16 @@ async def explain_report(
     source = (text_source or "reference").strip().lower()
     if source == "our_ocr":
         try:
-            ocr_run = await run_ocr_on_report(db, report, engine_name=ocr_engine)
+            # Public explain grounds in precomputed OCR only — never live Tesseract.
+            from app.services.ocr.pipeline import get_precomputed_ocr
+
+            ocr_run = get_precomputed_ocr(db, report, engine=ocr_engine)
+            if ocr_run is None:
+                raise FileNotFoundError(
+                    "No precomputed OCR for this report; cannot explain from Our OCR."
+                )
         except FileNotFoundError as exc:
             raise HTTPException(404, str(exc)) from exc
-        except OcrBusyError as exc:
-            raise HTTPException(
-                status_code=429,
-                detail={"message": str(exc), "code": exc.code},
-            ) from exc
         except LLMServiceError as exc:
             status = 504 if "timeout" in exc.code else 502
             raise HTTPException(
