@@ -104,6 +104,39 @@ class ReportSummary(BaseModel):
 class ReportDetail(ReportSummary):
     report_text: str
     gdc_metadata: dict[str, Any] | None = None
+    scan_manifest: dict[str, Any] | None = None
+
+
+class ScanPageOut(BaseModel):
+    page: int
+    url: str
+    width: int | None = None
+    height: int | None = None
+
+
+class ReportJourneyOut(BaseModel):
+    """Three-stage scan → OCR → explain journey metadata for the public demo."""
+
+    report_id: int
+    tcga_barcode: str
+    cancer_type: str
+    # Stage 1
+    scan_source: str | None = None  # gdc_pdf | ocr_text_facsimile | None
+    scan_label: str | None = None
+    scan_citation: str | None = None
+    scan_pages: list[ScanPageOut] = Field(default_factory=list)
+    # Stage 2 — OCR was performed by TCGA-Reports authors, not this app
+    ocr_label: str = (
+        "Machine-readable OCR text from TCGA-Reports (Kefeli et al., Patterns 2024; AWS Textract). "
+        "PathExplain does not run OCR."
+    )
+    ocr_citation: str = (
+        "Kefeli et al., “TCGA-Reports: A Machine-Readable Pathology Report Resource for "
+        "Benchmarking Text-Based AI Models”, Patterns 2024. Underlying scans: open-access TCGA / NCI GDC."
+    )
+    report_text: str
+    # Stage 3 pointer — client loads explain separately
+    explain_path: str
 
 
 class ExplainResponse(BaseModel):
@@ -128,6 +161,8 @@ class ExplainResponse(BaseModel):
     explanation_retried: bool = False
     # Snapshot of unsupported_sentences check at generation time.
     grounding_check: dict[str, Any] | None = None
+    # Optional journey metadata (scan pages + OCR attribution).
+    journey: ReportJourneyOut | None = None
     # Glossary terms relevant to this explanation (optional enrichment).
     glossary: list[dict[str, Any]] = Field(default_factory=list)
 

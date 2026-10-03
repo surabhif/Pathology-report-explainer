@@ -23,10 +23,15 @@ A small sample set is committed under `data/sample_reports.json`. The full ~9,50
 
 ## Method
 
+PathExplain’s contribution starts **after** machine-readable text exists:
+
+0. **Scan → OCR (not this app)** — Original pages are open-access TCGA pathology report PDFs on the NCI GDC. The public demo caches small page images under `data/scan_cache/` at import/build time. Machine-readable OCR text comes from **TCGA-Reports** (Kefeli et al.; AWS Textract). PathExplain does **not** run OCR.
 1. **Structured extraction** — An LLM (or deterministic mock provider) returns JSON facts matching `backend/config/extraction_schema.json`, each with a source quote.
 2. **Grounded explanation** — A second step writes short sentences **only from extracted facts**, linking each sentence to its sources.
 3. **Glossary & reading level** — Medical terms are explained; Flesch–Kincaid grade is reported for the original report and the explanation (target: roughly 6th–8th grade).
 4. **Versioning** — Prompts live as editable files under `backend/prompts/`. Every generation and evaluation result is tagged with prompt version and model.
+
+The public demo UI walks users through stages 0–2 as a journey (scan → OCR text → facts/explanation), with honest labels when a cached page is an OCR facsimile rather than a GDC PDF render.
 
 The API key for any hosted LLM stays on the server. The default provider is **mock** so the demo runs without credentials.
 
@@ -49,6 +54,8 @@ Built into the product as roles and tasks:
 - Reading-level formulas are approximate.
 - TSS→cancer-type mapping for import is a curated subset and may mis-label rare edge cases until enriched via GDC.
 - English-only, TCGA-era report style.
+- OCR was performed by the TCGA-Reports authors (Textract), not by PathExplain; demo “scan” pages may be GDC PDF renders or honestly labeled OCR facsimiles when GDC was unreachable at cache time.
+- Live OCR on user-uploaded scans is future work (see `docs/DESIGN.md`); the MVP does not accept PHI uploads.
 
 ## Disclaimer
 

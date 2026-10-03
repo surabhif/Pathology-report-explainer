@@ -102,6 +102,25 @@ def _ensure_generation_fallback_columns() -> None:
                 conn.execute(text(statement))
 
 
+def _ensure_report_scan_column() -> None:
+    """Add reports.scan_manifest if missing (older DBs)."""
+    with engine.begin() as conn:
+        if engine.url.get_backend_name() == "sqlite":
+            existing = {row[1] for row in conn.execute(text("PRAGMA table_info(reports)")).fetchall()}
+            if "scan_manifest" not in existing:
+                conn.execute(text("ALTER TABLE reports ADD COLUMN scan_manifest JSON"))
+        else:
+            rows = conn.execute(
+                text(
+                    "SELECT column_name FROM information_schema.columns "
+                    "WHERE table_name = 'reports'"
+                )
+            ).fetchall()
+            existing = {r[0] for r in rows}
+            if "scan_manifest" not in existing:
+                conn.execute(text("ALTER TABLE reports ADD COLUMN scan_manifest JSON"))
+
+
 def init_db() -> None:
     """Create tables if they do not exist (MVP convenience; prefer Alembic in prod)."""
     # Import models so metadata is populated before create_all.
@@ -110,6 +129,7 @@ def init_db() -> None:
     Base.metadata.create_all(bind=engine)
     try:
         _ensure_generation_fallback_columns()
+        _ensure_report_scan_column()
     except Exception:  # noqa: BLE001 — best-effort schema patch on startup
         # Table may not exist yet on a brand-new empty DB before create_all,
         # or the dialect may differ; create_all already covered new installs.

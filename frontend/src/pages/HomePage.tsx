@@ -6,6 +6,7 @@ import { FactSheetPanel } from '../components/FactSheetPanel'
 import { GlossaryPanel } from '../components/GlossaryPanel'
 import { HighlightedReport } from '../components/HighlightedReport'
 import { ReadingLevel } from '../components/ReadingLevel'
+import { ReportJourney } from '../components/ReportJourney'
 import type {
   CancerType,
   ExplainResponse,
@@ -16,8 +17,8 @@ import type {
 import { CANCER_OPTIONS } from '../types'
 
 /**
- * Public demo home: pick cancer type → pick report → show grounded explain UI.
- * Intentionally NO free-text paste box for real/PHI reports.
+ * Public demo home: pick cancer type → pick report → three-stage journey
+ * (scan → OCR text → PathExplain facts). No free-text paste for real/PHI reports.
  */
 export function HomePage() {
   const [cancer, setCancer] = useState<CancerType | null>(null)
@@ -97,8 +98,8 @@ export function HomePage() {
           <h1 className="hero-brand">PathExplain</h1>
           <p className="hero-headline">Pathology reports, explained in plain language.</p>
           <p className="hero-support">
-            A research prototype that extracts grounded facts from sample TCGA-style reports and
-            explains them with source quotes — never for clinical decisions.
+            A research prototype that walks from a scanned TCGA page through OCR text to grounded
+            facts and plain-language explanation — never for clinical decisions.
           </p>
           <div className="hero-cta">
             <a className="btn btn-primary" href="#demo">
@@ -115,8 +116,10 @@ export function HomePage() {
       <section id="demo">
         <h2 className="section-title">Public demo</h2>
         <p className="muted">
-          Choose a cancer type and a seeded sample report. There is no paste box — real patient text
-          must not be entered here.
+          Choose a cancer type and a seeded sample report. The journey shows (1) the scanned page,
+          (2) machine-readable OCR text from TCGA-Reports / Textract, and (3) PathExplain’s
+          structured facts and explanation. There is no paste box — real patient text must not be
+          entered here.
         </p>
 
         <div className="demo-controls">
@@ -198,47 +201,63 @@ export function HomePage() {
                 </div>
               )}
             </div>
-            <div className="explain-layout">
-              <div className="panel">
-                <h3 className="section-title">Report</h3>
-                <p className="muted">
-                  Click a fact or explanation sentence to highlight its grounding quote.
-                </p>
-                <HighlightedReport
-                  text={result.report_text}
-                  highlightQuote={highlight.quote}
-                  startChar={highlight.start}
-                  endChar={highlight.end}
-                />
-              </div>
+
+            {result.journey ? (
+              <ReportJourney
+                journey={result.journey}
+                result={result}
+                glossary={result.glossary ?? []}
+                activeFact={activeFact}
+                activeSentence={activeSentence}
+                highlight={highlight}
+                onFactSelect={onFactSelect}
+                onSentenceSelect={onSentenceSelect}
+              />
+            ) : (
               <div className="stack">
-                <div className="panel">
-                  <h3 className="section-title">Structured facts</h3>
-                  <FactSheetPanel
-                    facts={result.facts}
-                    activeKey={activeFact}
-                    onSelect={onFactSelect}
-                  />
+                <div className="explain-layout">
+                  <div className="panel">
+                    <h3 className="section-title">Report</h3>
+                    <p className="muted">
+                      Click a fact or explanation sentence to highlight its grounding quote.
+                    </p>
+                    <HighlightedReport
+                      text={result.report_text}
+                      highlightQuote={highlight.quote}
+                      startChar={highlight.start}
+                      endChar={highlight.end}
+                    />
+                  </div>
+                  <div className="stack">
+                    <div className="panel">
+                      <h3 className="section-title">Structured facts</h3>
+                      <FactSheetPanel
+                        facts={result.facts}
+                        activeKey={activeFact}
+                        onSelect={onFactSelect}
+                      />
+                    </div>
+                    <div className="panel">
+                      <h3 className="section-title">Plain-language explanation</h3>
+                      <ExplanationPanel
+                        explanation={result.explanation}
+                        reportText={result.report_text}
+                        activeIndex={activeSentence}
+                        onSelect={onSentenceSelect}
+                      />
+                      <ReadingLevel
+                        original={result.reading_level_original}
+                        explanation={result.reading_level_explanation}
+                      />
+                    </div>
+                  </div>
                 </div>
                 <div className="panel">
-                  <h3 className="section-title">Plain-language explanation</h3>
-                  <ExplanationPanel
-                    explanation={result.explanation}
-                    reportText={result.report_text}
-                    activeIndex={activeSentence}
-                    onSelect={onSentenceSelect}
-                  />
-                  <ReadingLevel
-                    original={result.reading_level_original}
-                    explanation={result.reading_level_explanation}
-                  />
+                  <h3 className="section-title">Glossary</h3>
+                  <GlossaryPanel terms={result.glossary ?? []} />
                 </div>
               </div>
-            </div>
-            <div className="panel">
-              <h3 className="section-title">Glossary</h3>
-              <GlossaryPanel terms={result.glossary ?? []} />
-            </div>
+            )}
           </div>
         )}
       </section>

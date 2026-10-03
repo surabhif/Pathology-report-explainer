@@ -14,6 +14,7 @@ import type {
   GlossaryTerm,
   ProgressOut,
   ReportDetail,
+  ReportJourneyOut,
   ReportSummary,
   ResultsSummary,
   ReviewScores,
@@ -146,6 +147,10 @@ export const api = {
 
   explainReport(reportId: number) {
     return request<ExplainResponse>(`/api/public/reports/${reportId}/explain`)
+  },
+
+  getReportJourney(reportId: number) {
+    return request<ReportJourneyOut>(`/api/public/reports/${reportId}/journey`)
   },
 
   getGlossary() {

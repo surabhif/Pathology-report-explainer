@@ -69,7 +69,7 @@ On the Login page, redeem one of:
 
 ## End-to-end evaluation loop
 
-1. **Public demo** (`/`): pick Breast / Colon / Lung → open a report → fact sheet, quotes, explanation, glossary, reading levels.
+1. **Public demo** (`/`): pick Breast / Colon / Lung → open a report → **three-stage journey** (scanned page → OCR text from TCGA-Reports/Textract → PathExplain fact sheet + grounded explanation), glossary, reading levels. Clicking a fact highlights its quote in the OCR text.
 2. **Admin** (`/admin` + `DEMO_ADMIN_TOKEN`): review seeded evaluation set & batches, invite clinicians, run automatic checks.
 3. **Annotator** (`/annotate`): label fact-sheet fields by highlighting spans (model output is hidden).
 4. **Auto-checks** (Admin → Run automatic checks): field accuracy vs gold, TCGA metadata agreement, number grounding, unsupported sentences, reading levels.
@@ -124,7 +124,15 @@ python scripts/import_tcga.py ../data/sample_reports.json
 
 # Download full zip and import a stratified slice (not committed)
 python scripts/download_and_import_tcga.py --cancer-types BRCA,COAD,LUAD --limit-per-type 50
+
+# Same import, also cache scan page images (GDC PDF renders, or OCR facsimile if GDC is down)
+python scripts/download_and_import_tcga.py --cancer-types BRCA,COAD,LUAD --limit-per-type 10 --fetch-scans
+
+# Refresh demo scan pages only
+python scripts/fetch_scan_pages.py --from-sample-data --force --sync-db
 ```
+
+Cached pages live under `data/scan_cache/<TCGA-case>/` (JPEGs + `manifest.json`). The public demo serves them from our API — it does not hot-link GDC or S3 at runtime. Stage 2 OCR text is attributed to Kefeli et al. / Textract; PathExplain owns stages 2→3 (extract + explain) only.
 
 Cancer types are configurable in `backend/config/cancer_types.json`.
 

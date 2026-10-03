@@ -57,9 +57,25 @@ SQLAlchemy models work on **SQLite locally** and **Postgres in production** (`DA
 
 React (required) + Vite + TypeScript. Simple CSS with a calm teal/slate research look — not a generic “AI purple” template. Brand **PathExplain** is hero-level on the landing page.
 
+## Three-stage public demo journey
+
+Salil’s product ask: show how a scanned page becomes structured content.
+
+1. **Scanned report** — open-access TCGA pathology PDF page images from the NCI GDC (`Clinical` / `Pathology Report` / `PDF`), fetched at import/build time into `data/scan_cache/` (never hot-linked at runtime). If GDC is down while packaging, we ship a clearly labeled **OCR-text facsimile** so the layout still demos; the UI must not claim it is a GDC scan.
+2. **OCR text** — machine-readable text from **TCGA-Reports (Kefeli et al., Patterns 2024; AWS Textract)**. PathExplain does **not** run OCR. Stage 2 is labeled and cited accordingly.
+3. **Facts & explanation** — PathExplain’s contribution: structured fact sheet with quotes + grounded plain-language explanation. Clicking a fact highlights its quote in the OCR text (side-by-side).
+
+Tradeoff: highlighting matching regions on the scan image would need OCR bounding boxes we do not have from Textract outputs in this corpus; we skip scan-region highlight rather than fake it.
+
+## Future work
+
+- **Live OCR on uploaded scans** — optional later path: accept a page image, run OCR (e.g. Textract or open-source), then feed text into the existing extract→explain pipeline. Easy to add as a new stage-1 input without changing stages 2→3. **Not in MVP** (ethics: no PHI paste; keep demo on public TCGA only).
+- Prefer real GDC PDF page renders over facsimiles whenever GDC is reachable (`python backend/scripts/fetch_scan_pages.py --from-sample-data --force`).
+- Optional: use Textract geometry (if re-run) to highlight quote regions on the scan.
+
 ## What we deliberately stubbed or kept thin in MVP
 
-See the PR summary for the current stub list. Examples of intentional thin spots: live GDC enrichment is optional/offline-tolerant; Alembic exists but SQLite `create_all` is the happy path; inter-rater agreement appears when multiple clinicians share an item but needs enough dual reviews to be meaningful.
+See the PR summary for the current stub list. Examples of intentional thin spots: live GDC enrichment is optional/offline-tolerant; Alembic exists but SQLite `create_all` is the happy path; inter-rater agreement appears when multiple clinicians share an item but needs enough dual reviews to be meaningful; scan-region highlighting is omitted without bounding boxes.
 
 ## Editing research knobs
 

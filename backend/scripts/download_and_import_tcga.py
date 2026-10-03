@@ -141,6 +141,16 @@ def main() -> None:
         default=None,
         help="Also write selected reports to this JSON path",
     )
+    parser.add_argument(
+        "--fetch-scans",
+        action="store_true",
+        help="Cache GDC pathology PDF page images (or OCR facsimile) for each imported report",
+    )
+    parser.add_argument(
+        "--no-facsimile",
+        action="store_true",
+        help="With --fetch-scans, skip OCR facsimiles when GDC is unavailable",
+    )
     args = parser.parse_args()
     wanted = {c.strip().upper() for c in args.cancer_types.split(",") if c.strip()}
 
@@ -189,7 +199,7 @@ def main() -> None:
     db = SessionLocal()
     try:
         for item in selected:
-            import_report(
+            report = import_report(
                 db,
                 tcga_barcode=item["tcga_barcode"],
                 cancer_type=item["cancer_type"],
@@ -198,7 +208,23 @@ def main() -> None:
                 gdc_metadata=item.get("gdc_metadata"),
                 source="tcga",
             )
+            if args.fetch_scans and report is not None:
+                import asyncio
+
+                from app.services.scan_assets import ensure_scan_pages_for_barcode
+
+                manifest = asyncio.run(
+                    ensure_scan_pages_for_barcode(
+                        item["tcga_barcode"],
+                        item["report_text"],
+                        allow_facsimile=not args.no_facsimile,
+                    )
+                )
+                report.scan_manifest = manifest
+                db.commit()
         print(f"Imported {len(selected)} reports: {dict(counts)}")
+        if args.fetch_scans:
+            print("Cached scan pages under data/scan_cache/ (GDC PDF renders when available).")
     finally:
         db.close()
 

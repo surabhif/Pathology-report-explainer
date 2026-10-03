@@ -59,6 +59,28 @@ export interface ReportSummary {
 export interface ReportDetail extends ReportSummary {
   report_text: string
   gdc_metadata?: Record<string, unknown> | null
+  scan_manifest?: Record<string, unknown> | null
+}
+
+export interface ScanPageOut {
+  page: number
+  url: string
+  width?: number | null
+  height?: number | null
+}
+
+export interface ReportJourneyOut {
+  report_id: number
+  tcga_barcode: string
+  cancer_type: string
+  scan_source?: string | null
+  scan_label?: string | null
+  scan_citation?: string | null
+  scan_pages: ScanPageOut[]
+  ocr_label: string
+  ocr_citation: string
+  report_text: string
+  explain_path: string
 }
 
 export interface GlossaryTerm {
@@ -89,6 +111,7 @@ export interface ExplainResponse {
     pass?: boolean
     flagged?: Array<{ index: number; reasons: string[]; sentence?: string }>
   } | null
+  journey?: ReportJourneyOut | null
   glossary?: GlossaryTerm[]
 }
 

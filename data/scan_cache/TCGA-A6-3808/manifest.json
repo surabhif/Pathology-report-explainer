@@ -1,0 +1,20 @@
+{
+  "barcode": "TCGA-A6-3808",
+  "case_submitter_id": "TCGA-A6-3808",
+  "pages": [
+    {
+      "page": 1,
+      "filename": "page-01.jpg",
+      "width": 850,
+      "height": 1100,
+      "relpath": "TCGA-A6-3808/page-01.jpg"
+    }
+  ],
+  "source": "ocr_text_facsimile",
+  "label": "Page facsimile from OCR text (GDC scan not cached)",
+  "citation": "Authentic open-access scans are TCGA pathology report PDFs on the NCI GDC. GDC was unreachable or returned no PDF during caching, so this demo shows a layout facsimile rendered from the publicly released TCGA-Reports OCR text. Re-run scripts/fetch_scan_pages.py when GDC is available to replace these images.",
+  "gdc_file_id": null,
+  "gdc_file_name": null,
+  "gdc_error": "HTTPStatusError",
+  "ocr_attribution": "Kefeli et al., TCGA-Reports (Patterns 2024) \u2014 machine-readable text via AWS Textract"
+}

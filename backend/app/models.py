@@ -86,6 +86,8 @@ class Report(Base):
     project_id: Mapped[str] = mapped_column(String(32), nullable=False, default="")
     report_text: Mapped[str] = mapped_column(Text, nullable=False)
     gdc_metadata: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    # Cached scan journey assets (GDC PDF page renders or labeled OCR facsimiles).
+    scan_manifest: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     source: Mapped[str] = mapped_column(String(32), nullable=False, default="tcga")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 

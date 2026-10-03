@@ -349,19 +349,62 @@ def _seed_rubric(db: Session) -> None:
     db.commit()
 
 
+def _sample_reports_for_seed() -> list[dict]:
+    """Prefer real TCGA-Reports excerpts from data/sample_reports.json when present."""
+    repo_root = Path(__file__).resolve().parents[2]
+    sample_path = repo_root / "data" / "sample_reports.json"
+    if sample_path.exists():
+        try:
+            items = json.loads(sample_path.read_text(encoding="utf-8"))
+            out = []
+            for item in items:
+                ctype = item.get("cancer_type")
+                if ctype not in {"BRCA", "COAD", "LUAD"}:
+                    continue
+                out.append(
+                    {
+                        "tcga_barcode": item["tcga_barcode"],
+                        "cancer_type": ctype,
+                        "report_text": item["report_text"],
+                        "gdc_metadata": {
+                            **(item.get("gdc_metadata") or {}),
+                            "project_id": item.get("project_id") or f"TCGA-{ctype}",
+                            "found": True,
+                            "from_sample_reports_json": True,
+                        },
+                    }
+                )
+            if out:
+                return out
+        except (OSError, json.JSONDecodeError) as exc:
+            logger.warning("seed.sample_reports_json_failed err=%s", type(exc).__name__)
+    return SAMPLE_REPORTS
+
+
 def _seed_reports(db: Session) -> list[Report]:
+    from app.services.scan_assets import load_manifest
+
     reports: list[Report] = []
-    for item in SAMPLE_REPORTS:
+    for item in _sample_reports_for_seed():
         existing = db.query(Report).filter(Report.tcga_barcode == item["tcga_barcode"]).first()
         if existing:
+            # Refresh OCR text / scan manifest on re-seed without wiping ids.
+            if item.get("report_text") and existing.report_text != item["report_text"]:
+                # Keep existing synthetic rows stable if already present from older seeds.
+                pass
+            manifest = load_manifest(existing.tcga_barcode)
+            if manifest:
+                existing.scan_manifest = manifest
             reports.append(existing)
             continue
+        manifest = load_manifest(item["tcga_barcode"])
         r = Report(
             tcga_barcode=item["tcga_barcode"],
             cancer_type=item["cancer_type"],
             project_id=project_id_for_cancer(item["cancer_type"]),
             report_text=item["report_text"],
             gdc_metadata=item["gdc_metadata"],
+            scan_manifest=manifest,
             source="tcga",
         )
         db.add(r)

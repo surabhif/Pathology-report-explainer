@@ -2,7 +2,7 @@
 
 ## Done (end-to-end)
 
-- Public demo: BRCA / COAD / LUAD sample reports → fact sheet, quote highlights, grounded explanation, glossary, Flesch–Kincaid grades, research disclaimer
+- Public demo: BRCA / COAD / LUAD sample reports → **three-stage journey** (cached scan page → TCGA-Reports/Textract OCR text → PathExplain fact sheet + grounded explanation), quote highlights, glossary, Flesch–Kincaid grades, research disclaimer
 - No free-text paste box
 - Invite-token auth with roles admin / annotator / clinician
 - Admin: users/invites, evaluation sets, batches, progress, auto-check job
@@ -13,13 +13,17 @@
 - Version tags on generations (prompt + model/provider)
 - Mock LLM provider (default) + **xAI Grok** (`LLM_PROVIDER=xai` → `https://api.x.ai/v1`, default `grok-4.20-0309-non-reasoning`) + OpenAI-compatible interface
 - Honest fallback labeling (`is_fallback`); primary eval metrics exclude fallbacks
+- Scan page cache (`data/scan_cache/`) + `fetch_scan_pages.py` / `--fetch-scans` import; honest OCR attribution (Kefeli et al. / Textract)
 - Seed data, sample TCGA JSON, download/import script
-- Tests (backend 30, frontend smoke), GitHub Actions CI
+- Tests (backend + frontend), GitHub Actions CI
 - Docs: README, DESIGN, DEPLOY, ABOUT/model card
 
 ## Thin / stubbed (intentional for days-not-weeks)
 
 - **Live GDC enrichment:** barcode→TSS map + optional API helper; seed uses static metadata blobs. Full live GDC sync is optional (`--fetch-gdc` / network).
+- **GDC scan PDFs at cache time:** when GDC is unreachable, demo ships labeled OCR-text facsimiles; re-run `fetch_scan_pages.py --force` when GDC is up.
+- **Scan-region highlight:** omitted without Textract bounding boxes; OCR-text quote highlight is implemented.
+- **Live OCR on uploads:** future work only (`docs/DESIGN.md`); MVP stays on public TCGA text.
 - **Alembic:** initial migration present; local MVP uses SQLAlchemy `create_all` on startup.
 - **Magic-link email delivery:** invite tokens work; no SMTP/sendgrid — admin copies tokens.
 - **Inter-rater:** computed when ≥2 clinicians score the same generation; seed only assigns one clinician (metric appears after dual assignment).

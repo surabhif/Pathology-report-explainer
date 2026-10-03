@@ -18,7 +18,9 @@ from app.schemas import (
     GlossaryOut,
     GlossaryTerm,
     ReportDetail,
+    ReportJourneyOut,
     ReportSummary,
+    ScanPageOut,
 )
 from app.services.explanation import generate_explanation
 from app.services.extraction import extract_facts
@@ -27,6 +29,7 @@ from app.services.llm.errors import LLMServiceError
 from app.services.llm.factory import get_llm_provider
 from app.services.rate_limit import client_ip_key
 from app.services.reading_level import explanation_text_from_payload, flesch_kincaid_grade
+from app.services.scan_assets import case_cache_dir, load_manifest
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/public", tags=["public"])
@@ -139,6 +142,60 @@ def get_report(report_id: int, db: Session = Depends(get_db)) -> ReportDetail:
     return ReportDetail.model_validate(report)
 
 
+def _journey_for_report(report: Report) -> ReportJourneyOut:
+    manifest = report.scan_manifest or load_manifest(report.tcga_barcode) or {}
+    pages_out: list[ScanPageOut] = []
+    for p in manifest.get("pages") or []:
+        filename = p.get("filename")
+        if not filename:
+            continue
+        pages_out.append(
+            ScanPageOut(
+                page=int(p.get("page") or len(pages_out) + 1),
+                url=f"/api/public/reports/{report.id}/scan-pages/{filename}",
+                width=p.get("width"),
+                height=p.get("height"),
+            )
+        )
+    return ReportJourneyOut(
+        report_id=report.id,
+        tcga_barcode=report.tcga_barcode,
+        cancer_type=report.cancer_type,
+        scan_source=manifest.get("source"),
+        scan_label=manifest.get("label"),
+        scan_citation=manifest.get("citation"),
+        scan_pages=pages_out,
+        report_text=report.report_text,
+        explain_path=f"/api/public/reports/{report.id}/explain",
+    )
+
+
+@router.get("/reports/{report_id}/journey", response_model=ReportJourneyOut)
+def report_journey(report_id: int, db: Session = Depends(get_db)) -> ReportJourneyOut:
+    """Stage metadata for scan → OCR text → PathExplain facts/explanation."""
+    report = db.query(Report).filter(Report.id == report_id).first()
+    if not report:
+        raise HTTPException(404, "Report not found")
+    return _journey_for_report(report)
+
+
+@router.get("/reports/{report_id}/scan-pages/{filename}")
+def report_scan_page(report_id: int, filename: str, db: Session = Depends(get_db)):
+    """Serve a cached scan/facsimile page image (never hot-link GDC at runtime)."""
+    from fastapi.responses import FileResponse
+
+    if "/" in filename or "\\" in filename or ".." in filename:
+        raise HTTPException(400, "Invalid filename")
+    report = db.query(Report).filter(Report.id == report_id).first()
+    if not report:
+        raise HTTPException(404, "Report not found")
+    path = case_cache_dir(report.tcga_barcode) / filename
+    if not path.exists():
+        raise HTTPException(404, "Scan page not cached")
+    media = "image/jpeg" if path.suffix.lower() in {".jpg", ".jpeg"} else "image/png"
+    return FileResponse(path, media_type=media)
+
+
 @router.get("/glossary", response_model=GlossaryOut)
 def get_glossary() -> GlossaryOut:
     """Public glossary of pathology terms used in the demo UI."""
@@ -219,4 +276,5 @@ async def explain_report(
         explanation_retried=bool(gen.explanation_retried),
         grounding_check=gen.grounding_check_json,
         glossary=_glossary_for_text(report.report_text, expl_text),
+        journey=_journey_for_report(report),
     )
