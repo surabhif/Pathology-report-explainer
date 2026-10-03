@@ -10,13 +10,16 @@ from sqlalchemy.orm import Session
 
 from app.config import get_settings
 from app.db import get_db
-from app.models import Generation, PromptVersion, Report
+from app.models import Generation, OcrRun, PromptVersion, Report
 from app.schemas import (
     ExplainResponse,
     ExplanationPayload,
     FactSheet,
     GlossaryOut,
     GlossaryTerm,
+    OcrDiffOut,
+    OcrRunOut,
+    OurOcrOut,
     ReportDetail,
     ReportJourneyOut,
     ReportSummary,
@@ -27,6 +30,8 @@ from app.services.extraction import extract_facts
 from app.services.glossary import load_glossary
 from app.services.llm.errors import LLMServiceError
 from app.services.llm.factory import get_llm_provider
+from app.services.ocr.metrics import ocr_error_metrics, word_diff_spans
+from app.services.ocr.pipeline import latest_ocr_run, run_ocr_on_report
 from app.services.rate_limit import client_ip_key
 from app.services.reading_level import explanation_text_from_payload, flesch_kincaid_grade
 from app.services.scan_assets import case_cache_dir, load_manifest
@@ -49,12 +54,36 @@ def _active_prompt_tag(db: Session, kind: str) -> str:
     return f"{kind}_v1"
 
 
-async def run_explain_pipeline(db: Session, report: Report, *, use_cache: bool = True) -> Generation:
-    """Extract + explain, caching Generation rows by report/provider/model/prompts.
+async def run_explain_pipeline(
+    db: Session,
+    report: Report,
+    *,
+    use_cache: bool = True,
+    text_source: str = "reference",
+    ocr_run: OcrRun | None = None,
+) -> Generation:
+    """Extract + explain, caching Generation rows by report/provider/model/prompts/text_source.
 
     Fallback generations are stored with provider=mock and is_fallback=True so
     research evaluation never misattributes heuristic output to a hosted model.
     """
+    text_source = (text_source or "reference").strip().lower()
+    if text_source not in {"reference", "our_ocr"}:
+        text_source = "reference"
+
+    source_text = report.report_text
+    ocr_run_id: int | None = None
+    if text_source == "our_ocr":
+        if ocr_run is None:
+            ocr_run = latest_ocr_run(db, report.id)
+        if ocr_run is None:
+            raise HTTPException(
+                400,
+                "No PathExplain OCR run yet. Call /api/public/reports/{id}/ocr first.",
+            )
+        source_text = ocr_run.text
+        ocr_run_id = ocr_run.id
+
     provider = get_llm_provider()
     extract_tag = _active_prompt_tag(db, "extract")
     explain_tag = _active_prompt_tag(db, "explain")
@@ -62,7 +91,7 @@ async def run_explain_pipeline(db: Session, report: Report, *, use_cache: bool =
     requested_model = provider.model_id()
 
     if use_cache:
-        cached = (
+        cached_q = (
             db.query(Generation)
             .filter(
                 Generation.report_id == report.id,
@@ -71,19 +100,26 @@ async def run_explain_pipeline(db: Session, report: Report, *, use_cache: bool =
                 Generation.prompt_extract_version == extract_tag,
                 Generation.prompt_explain_version == explain_tag,
                 Generation.is_fallback.is_(False),
+                Generation.text_source == text_source,
             )
-            .order_by(Generation.id.desc())
-            .first()
         )
+        if ocr_run_id is not None:
+            cached_q = cached_q.filter(Generation.ocr_run_id == ocr_run_id)
+        cached = cached_q.order_by(Generation.id.desc()).first()
         if cached:
             return cached
 
     # PHI: log ids/lengths only — never full report text
-    logger.info("public.explain report_id=%s chars=%d", report.id, len(report.report_text))
+    logger.info(
+        "public.explain report_id=%s chars=%d text_source=%s",
+        report.id,
+        len(source_text),
+        text_source,
+    )
 
-    extract_res = await extract_facts(report.report_text, provider, prompt_name="extract_v1.txt")
+    extract_res = await extract_facts(source_text, provider, prompt_name="extract_v1.txt")
     explain_res = await generate_explanation(
-        report.report_text,
+        source_text,
         extract_res.facts,
         provider,
         prompt_name="explain_v1.txt",
@@ -96,7 +132,7 @@ async def run_explain_pipeline(db: Session, report: Report, *, use_cache: bool =
     stored_provider = "mock" if used_fallback else requested_provider
     stored_model = "mock-heuristic-v1" if used_fallback else requested_model
 
-    rl_orig = flesch_kincaid_grade(report.report_text)
+    rl_orig = flesch_kincaid_grade(source_text)
     rl_expl = flesch_kincaid_grade(
         explanation_text_from_payload(explain_res.explanation.model_dump())
     )
@@ -113,6 +149,8 @@ async def run_explain_pipeline(db: Session, report: Report, *, use_cache: bool =
         requested_model=requested_model if used_fallback else None,
         explanation_retried=bool(explain_res.retried),
         grounding_check_json=explain_res.grounding_check or None,
+        text_source=text_source,
+        ocr_run_id=ocr_run_id,
         facts_json=extract_res.facts.model_dump(),
         explanation_json=explain_res.explanation.model_dump(),
         reading_level_original=rl_orig,
@@ -142,7 +180,24 @@ def get_report(report_id: int, db: Session = Depends(get_db)) -> ReportDetail:
     return ReportDetail.model_validate(report)
 
 
-def _journey_for_report(report: Report) -> ReportJourneyOut:
+def _our_ocr_out(run: OcrRun) -> OurOcrOut:
+    pages = run.pages_json or []
+    return OurOcrOut(
+        ocr_run_id=run.id,
+        engine=run.engine,
+        engine_version=run.engine_version,
+        model=run.model,
+        text=run.text,
+        duration_ms=run.duration_ms,
+        estimated_cost_usd=run.estimated_cost_usd,
+        cer=run.cer,
+        wer=run.wer,
+        page_count=len(pages),
+    )
+
+
+def _journey_for_report(report: Report, db: Session | None = None) -> ReportJourneyOut:
+    settings = get_settings()
     manifest = report.scan_manifest or load_manifest(report.tcga_barcode) or {}
     pages_out: list[ScanPageOut] = []
     for p in manifest.get("pages") or []:
@@ -157,6 +212,13 @@ def _journey_for_report(report: Report) -> ReportJourneyOut:
                 height=p.get("height"),
             )
         )
+    our: OurOcrOut | None = None
+    if db is not None:
+        run = latest_ocr_run(db, report.id, engine=settings.ocr_engine) or latest_ocr_run(
+            db, report.id
+        )
+        if run:
+            our = _our_ocr_out(run)
     return ReportJourneyOut(
         report_id=report.id,
         tcga_barcode=report.tcga_barcode,
@@ -166,6 +228,8 @@ def _journey_for_report(report: Report) -> ReportJourneyOut:
         scan_citation=manifest.get("citation"),
         scan_pages=pages_out,
         report_text=report.report_text,
+        our_ocr=our,
+        default_ocr_engine=settings.ocr_engine,
         explain_path=f"/api/public/reports/{report.id}/explain",
     )
 
@@ -176,7 +240,61 @@ def report_journey(report_id: int, db: Session = Depends(get_db)) -> ReportJourn
     report = db.query(Report).filter(Report.id == report_id).first()
     if not report:
         raise HTTPException(404, "Report not found")
-    return _journey_for_report(report)
+    return _journey_for_report(report, db)
+
+
+@router.get("/reports/{report_id}/ocr", response_model=OcrRunOut)
+@limiter.limit(get_settings().rate_limit_explain)
+async def report_ocr(
+    request: Request,
+    report_id: int,
+    db: Session = Depends(get_db),
+    engine: str | None = None,
+    force: bool = False,
+) -> OcrRunOut:
+    """Run (or return cached) PathExplain OCR on demo scan pages — no arbitrary uploads."""
+    report = db.query(Report).filter(Report.id == report_id).first()
+    if not report:
+        raise HTTPException(404, "Report not found")
+    try:
+        run = await run_ocr_on_report(db, report, engine_name=engine, force=force)
+    except FileNotFoundError as exc:
+        raise HTTPException(404, str(exc)) from exc
+    except LLMServiceError as exc:
+        status = 504 if "timeout" in exc.code else 502
+        raise HTTPException(status_code=status, detail={"message": exc.message, "code": exc.code}) from exc
+    return OcrRunOut(
+        id=run.id,
+        report_id=run.report_id,
+        engine=run.engine,
+        engine_version=run.engine_version,
+        model=run.model,
+        text=run.text,
+        duration_ms=run.duration_ms,
+        estimated_cost_usd=run.estimated_cost_usd,
+        cer=run.cer,
+        wer=run.wer,
+        pages=list(run.pages_json or []),
+        created_at=run.created_at,
+    )
+
+
+@router.get("/reports/{report_id}/ocr/diff", response_model=OcrDiffOut)
+def report_ocr_diff(
+    report_id: int,
+    db: Session = Depends(get_db),
+    engine: str | None = None,
+) -> OcrDiffOut:
+    """Word-level diff between TCGA-Reports reference text and our OCR."""
+    report = db.query(Report).filter(Report.id == report_id).first()
+    if not report:
+        raise HTTPException(404, "Report not found")
+    run = latest_ocr_run(db, report.id, engine=engine) or latest_ocr_run(db, report.id)
+    if not run:
+        raise HTTPException(404, "No OCR run yet — call /ocr first")
+    diff = word_diff_spans(report.report_text, run.text)
+    metrics = ocr_error_metrics(report.report_text, run.text)
+    return OcrDiffOut(ops=diff["ops"], changed=diff["changed"], cer=metrics["cer"], wer=metrics["wer"])
 
 
 @router.get("/reports/{report_id}/scan-pages/{filename}")
@@ -238,17 +356,35 @@ async def explain_report(
     request: Request,
     report_id: int,
     db: Session = Depends(get_db),
+    text_source: str = "reference",
+    ocr_engine: str | None = None,
 ) -> ExplainResponse:
     """Run (or return cached) extraction + explanation pipeline.
 
-    Rate-limited via slowapi. Note: use explicit Depends(get_db) here because
-    the limiter decorator can strip Annotated dependency aliases.
+    text_source=reference uses TCGA-Reports (Textract) text.
+    text_source=our_ocr runs/uses PathExplain OCR first, then grounds quotes in that text.
     """
     report = db.query(Report).filter(Report.id == report_id).first()
     if not report:
         raise HTTPException(404, "Report not found")
+
+    ocr_run = None
+    source = (text_source or "reference").strip().lower()
+    if source == "our_ocr":
+        try:
+            ocr_run = await run_ocr_on_report(db, report, engine_name=ocr_engine)
+        except FileNotFoundError as exc:
+            raise HTTPException(404, str(exc)) from exc
+        except LLMServiceError as exc:
+            status = 504 if "timeout" in exc.code else 502
+            raise HTTPException(
+                status_code=status, detail={"message": exc.message, "code": exc.code}
+            ) from exc
+
     try:
-        gen = await run_explain_pipeline(db, report)
+        gen = await run_explain_pipeline(
+            db, report, text_source=source, ocr_run=ocr_run
+        )
     except LLMServiceError as exc:
         # Clear, UI-displayable error — not a generic 500.
         status = 504 if exc.code == "llm_timeout" else 502
@@ -256,13 +392,17 @@ async def explain_report(
             status_code=status,
             detail={"message": exc.message, "code": exc.code},
         ) from exc
+    except HTTPException:
+        raise
+
     facts = FactSheet.model_validate(gen.facts_json)
     explanation = ExplanationPayload.model_validate(gen.explanation_json)
     expl_text = " ".join(s.sentence for s in explanation.sentences)
+    used_text = ocr_run.text if ocr_run is not None else report.report_text
     return ExplainResponse(
         report_id=report.id,
         generation_id=gen.id,
-        report_text=report.report_text,
+        report_text=used_text,
         facts=facts,
         explanation=explanation,
         reading_level_original=gen.reading_level_original,
@@ -275,6 +415,8 @@ async def explain_report(
         requested_model=gen.requested_model,
         explanation_retried=bool(gen.explanation_retried),
         grounding_check=gen.grounding_check_json,
-        glossary=_glossary_for_text(report.report_text, expl_text),
-        journey=_journey_for_report(report),
+        glossary=_glossary_for_text(used_text, expl_text),
+        journey=_journey_for_report(report, db),
+        text_source=gen.text_source or "reference",
+        ocr_run_id=gen.ocr_run_id,
     )

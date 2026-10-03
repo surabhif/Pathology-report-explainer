@@ -444,6 +444,39 @@ export function AdminPage() {
           ))}
         </div>
       </div>
+
+      <div className="panel">
+        <h2 className="section-title" style={{ fontSize: '1.1rem' }}>
+          OCR benchmark
+        </h2>
+        <p className="muted">
+          Run PathExplain OCR (default Tesseract) on seeded sample scans stratified by cancer type.
+          Measures CER/WER vs TCGA-Reports (Textract) and field-extraction accuracy impact vs gold
+          when labels exist. Results appear on the Results dashboard. Public demo never accepts
+          arbitrary uploads (PHI).
+        </p>
+        <div className="row">
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={() =>
+              void wrap(async () => {
+                const res = await api.runOcrBenchmark('tesseract')
+                setMessage(
+                  `OCR benchmark #${res.benchmark_id} (${res.engine}) on ${res.n_reports} reports.`,
+                )
+              })
+            }
+          >
+            Run OCR benchmark (Tesseract)
+          </button>
+        </div>
+        <p className="muted" style={{ fontSize: '0.85rem', marginTop: '0.75rem' }}>
+          Admin-only test upload (de-identified / TCGA pages only) is available via{' '}
+          <code>POST /api/admin/ocr/upload-test</code> with <code>acknowledge_deidentified=true</code>
+          . Image bytes are not stored.
+        </p>
+      </div>
     </div>
   )
 }

@@ -31,16 +31,29 @@ You do **not** need deploy credentials to develop locally. This document is the 
 
 ## Render (API)
 
-### Service settings
+### Option A — Docker (recommended when using Tesseract OCR)
+
+| Setting | Value |
+|---------|--------|
+| Root Directory | `backend` |
+| Runtime | **Docker** |
+| Dockerfile Path | `./Dockerfile` |
+| Docker Command | *(leave empty — image `CMD` starts uvicorn)* |
+| Auto-Deploy | **Off** |
+
+The Dockerfile installs `tesseract-ocr` + English trained data so `OCR_ENGINE=tesseract` works on Render’s free tier without a paid OCR API.
+
+### Option B — Native Python (no system Tesseract)
 
 | Setting | Value |
 |---------|--------|
 | Root Directory | `backend` |
 | Runtime | Python |
-| **`PYTHON_VERSION`** | **`3.12.3`** (Render env var / runtime pin) |
+| **`PYTHON_VERSION`** | **`3.12.3`** |
 | Build Command | `pip install -r requirements.txt` |
 | Start Command | `uvicorn app.main:app --host 0.0.0.0 --port $PORT` |
-| Auto-Deploy | **Off** (manual deploy from the merged/main commit you trust) |
+
+Without the Docker image, set `OCR_ENGINE=mock` or `OCR_ENGINE=xai_vision` (requires API key). Native Python on Render cannot install apt packages for Tesseract.
 
 Health check path: `/api/health` → `{"ok": true, "provider": …}`.
 
@@ -58,6 +71,10 @@ Health check path: `/api/health` → `{"ok": true, "provider": …}`.
 | `XAI_API_KEY` | Optional | Alias when `LLM_PROVIDER=xai` |
 | `LLM_BASE_URL` | Optional | `https://api.x.ai/v1` |
 | `LLM_TIMEOUT_SECONDS` | Optional | Default `120`. Raise if you use a slow reasoning model |
+| `OCR_ENGINE` | Optional | Default `tesseract`. Also `xai_vision` or `mock` |
+| `OCR_MAX_PAGES` | Optional | Default `2` (cost/latency bound) |
+| `OCR_VISION_MODEL` | Optional | Empty → LLM/xAI default model |
+| `OCR_VISION_DETAIL` | Optional | `low` (default, cheaper) \| `high` \| `auto` |
 | `SEED_ON_STARTUP` | Optional | `true` to seed sample reports/prompts; demo **users** only if `DEMO_*_TOKEN` set |
 | `DEMO_ADMIN_TOKEN` | Optional | If unset in production, demo admin is **not** seeded |
 | `DEMO_ANNOTATOR_TOKEN` | Optional | Same |
@@ -65,6 +82,16 @@ Health check path: `/api/health` → `{"ok": true, "provider": …}`.
 | `RATE_LIMIT_EXPLAIN` | Optional | e.g. `30/minute` |
 
 Invite clinicians from the Admin UI when demo tokens are not used.
+
+### Deploy config changes checklist (Render / Vercel)
+
+**Render (required for Tesseract default):**
+1. Switch the Web Service from Native Python → **Docker**.
+2. Set Dockerfile path to `./Dockerfile` (root directory still `backend`).
+3. Add OCR env vars if you want Grok vision instead: `OCR_ENGINE=xai_vision`, keep `LLM_API_KEY`.
+4. Redeploy manually after merge.
+
+**Vercel:** no new env vars required for OCR (OCR runs only on the API). Existing `VITE_API_BASE_URL` is enough.
 
 ## Vercel (front end)
 

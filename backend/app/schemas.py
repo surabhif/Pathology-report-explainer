@@ -114,6 +114,26 @@ class ScanPageOut(BaseModel):
     height: int | None = None
 
 
+class OurOcrOut(BaseModel):
+    """PathExplain-owned OCR transcript for stage 2 comparison."""
+
+    ocr_run_id: int
+    engine: str
+    engine_version: str
+    model: str | None = None
+    text: str
+    duration_ms: float | None = None
+    estimated_cost_usd: float | None = None
+    cer: float | None = None  # vs TCGA-Reports reference
+    wer: float | None = None
+    page_count: int = 0
+    label: str = "Our OCR (PathExplain)"
+    note: str = (
+        "Transcribed by PathExplain from cached scan page images. "
+        "Quotes in stage 3 are grounded in this text when text_source=our_ocr."
+    )
+
+
 class ReportJourneyOut(BaseModel):
     """Three-stage scan → OCR → explain journey metadata for the public demo."""
 
@@ -125,18 +145,28 @@ class ReportJourneyOut(BaseModel):
     scan_label: str | None = None
     scan_citation: str | None = None
     scan_pages: list[ScanPageOut] = Field(default_factory=list)
-    # Stage 2 — OCR was performed by TCGA-Reports authors, not this app
+    # Stage 2 — reference OCR (TCGA-Reports / Textract) vs PathExplain OCR
     ocr_label: str = (
         "Machine-readable OCR text from TCGA-Reports (Kefeli et al., Patterns 2024; AWS Textract). "
-        "PathExplain does not run OCR."
+        "Use as the reference transcript for CER/WER benchmarks."
     )
     ocr_citation: str = (
         "Kefeli et al., “TCGA-Reports: A Machine-Readable Pathology Report Resource for "
         "Benchmarking Text-Based AI Models”, Patterns 2024. Underlying scans: open-access TCGA / NCI GDC."
     )
-    report_text: str
+    report_text: str  # reference (Textract) text
+    our_ocr: OurOcrOut | None = None
+    default_ocr_engine: str = "tesseract"
+    available_ocr_engines: list[str] = Field(default_factory=lambda: ["tesseract", "xai_vision"])
     # Stage 3 pointer — client loads explain separately
     explain_path: str
+
+
+class OcrDiffOut(BaseModel):
+    ops: list[dict[str, Any]] = Field(default_factory=list)
+    changed: int = 0
+    cer: float | None = None
+    wer: float | None = None
 
 
 class ExplainResponse(BaseModel):
@@ -163,6 +193,9 @@ class ExplainResponse(BaseModel):
     grounding_check: dict[str, Any] | None = None
     # Optional journey metadata (scan pages + OCR attribution).
     journey: ReportJourneyOut | None = None
+    # Which text was used: reference (TCGA-Reports) | our_ocr
+    text_source: str = "reference"
+    ocr_run_id: int | None = None
     # Glossary terms relevant to this explanation (optional enrichment).
     glossary: list[dict[str, Any]] = Field(default_factory=list)
 
@@ -349,6 +382,33 @@ class ResultsSummary(BaseModel):
     # Fallback generations are excluded from primary metrics; counted separately.
     fallback_generations: int = 0
     fallback_excluded_from_metrics: bool = True
+    # Latest OCR benchmark vs TCGA-Reports (Textract) reference.
+    ocr_benchmark: dict[str, Any] | None = None
+
+
+class OcrRunOut(BaseModel):
+    id: int
+    report_id: int
+    engine: str
+    engine_version: str
+    model: str | None = None
+    text: str
+    duration_ms: float | None = None
+    estimated_cost_usd: float | None = None
+    cer: float | None = None
+    wer: float | None = None
+    pages: list[dict[str, Any]] = Field(default_factory=list)
+    created_at: datetime | None = None
+
+
+class OcrBenchmarkOut(BaseModel):
+    id: int
+    engine: str
+    engine_version: str
+    report_ids: list[Any] = Field(default_factory=list)
+    summary: dict[str, Any] = Field(default_factory=dict)
+    per_report: list[dict[str, Any]] = Field(default_factory=list)
+    created_at: datetime | None = None
 
 
 class AboutOut(BaseModel):

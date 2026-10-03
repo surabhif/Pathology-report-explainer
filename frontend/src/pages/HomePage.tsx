@@ -56,7 +56,10 @@ export function HomePage() {
     }
   }, [cancer])
 
-  async function runExplain(reportId: number) {
+  async function runExplain(
+    reportId: number,
+    opts?: { text_source?: 'reference' | 'our_ocr' },
+  ) {
     setSelectedId(reportId)
     setLoading(true)
     setError(null)
@@ -65,7 +68,9 @@ export function HomePage() {
     setActiveSentence(null)
     setHighlight({ quote: null, start: null, end: null })
     try {
-      const expl = await api.explainReport(reportId)
+      const expl = await api.explainReport(reportId, {
+        text_source: opts?.text_source ?? 'our_ocr',
+      })
       setResult(expl)
     } catch (e: unknown) {
       setError(e instanceof ApiError ? e.detail : 'Explain failed')
@@ -117,9 +122,9 @@ export function HomePage() {
         <h2 className="section-title">Public demo</h2>
         <p className="muted">
           Choose a cancer type and a seeded sample report. The journey shows (1) the scanned page,
-          (2) machine-readable OCR text from TCGA-Reports / Textract, and (3) PathExplain’s
-          structured facts and explanation. There is no paste box — real patient text must not be
-          entered here.
+          (2) PathExplain OCR vs TCGA-Reports/Textract reference text, and (3) structured facts and
+          explanation grounded in the chosen transcript. There is no paste box — real patient text
+          must not be entered here.
         </p>
 
         <div className="demo-controls">
@@ -212,6 +217,10 @@ export function HomePage() {
                 highlight={highlight}
                 onFactSelect={onFactSelect}
                 onSentenceSelect={onSentenceSelect}
+                explaining={loading}
+                onExplainWithSource={(source) => {
+                  if (selectedId != null) void runExplain(selectedId, { text_source: source })
+                }}
               />
             ) : (
               <div className="stack">

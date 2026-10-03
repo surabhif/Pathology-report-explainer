@@ -69,12 +69,12 @@ On the Login page, redeem one of:
 
 ## End-to-end evaluation loop
 
-1. **Public demo** (`/`): pick Breast / Colon / Lung → open a report → **three-stage journey** (scanned page → OCR text from TCGA-Reports/Textract → PathExplain fact sheet + grounded explanation), glossary, reading levels. Clicking a fact highlights its quote in the OCR text.
-2. **Admin** (`/admin` + `DEMO_ADMIN_TOKEN`): review seeded evaluation set & batches, invite clinicians, run automatic checks.
+1. **Public demo** (`/`): pick Breast / Colon / Lung → open a report → **three-stage journey** (scanned page → **Our OCR** vs TCGA-Reports/Textract reference with diff → PathExplain fact sheet + grounded explanation), glossary, reading levels. Default explain grounds quotes in Our OCR text.
+2. **Admin** (`/admin` + `DEMO_ADMIN_TOKEN`): evaluation sets & batches, invites, auto-checks, **OCR benchmark**.
 3. **Annotator** (`/annotate`): label fact-sheet fields by highlighting spans (model output is hidden).
 4. **Auto-checks** (Admin → Run automatic checks): field accuracy vs gold, TCGA metadata agreement, number grounding, unsupported sentences, reading levels.
 5. **Clinician** (`/review`): side-by-side report + explanation; score accuracy / completeness / harm potential (1–5); flag sentences; comment. Prompt/model version is hidden.
-6. **Results** (`/results`): per-field and per-cancer metrics with 95% CIs, clinician score summaries, failure examples, CSV export.
+6. **Results** (`/results`): per-field and per-cancer metrics with 95% CIs, **OCR CER/WER + extraction impact**, clinician score summaries, failure examples, CSV export.
 
 ## Environment variables
 
@@ -86,6 +86,9 @@ See [`.env.example`](.env.example). Important ones:
 | `LLM_PROVIDER` | `mock`, `xai`, or `openai` | `mock` |
 | `LLM_MODEL` | Model id | `mock-heuristic-v1` (local); for xAI default `grok-4.20-0309-non-reasoning` |
 | `LLM_TIMEOUT_SECONDS` | Hosted LLM HTTP timeout | `120` |
+| `OCR_ENGINE` | `tesseract` (default), `xai_vision`, or `mock` | `tesseract` |
+| `OCR_MAX_PAGES` | Max pages OCR’d per report | `2` |
+| `OCR_VISION_DETAIL` | Vision OCR detail (`low`/`high`/`auto`) | `low` |
 | `LLM_API_KEY` | Server-only key (xAI or OpenAI) | empty |
 | `XAI_API_KEY` | Optional alias when `LLM_PROVIDER=xai` | empty |
 | `LLM_BASE_URL` | OpenAI-compatible base URL | empty → `https://api.x.ai/v1` for xai |

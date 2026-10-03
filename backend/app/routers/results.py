@@ -6,7 +6,7 @@ from fastapi import APIRouter
 from fastapi.responses import PlainTextResponse
 
 from app.deps import AdminUser, CurrentUser, DbDep
-from app.models import AnnotationTask, AutoCheckRun, Generation, ReviewTask
+from app.models import AnnotationTask, AutoCheckRun, Generation, OcrBenchmarkRun, ReviewTask
 from app.schemas import (
     ClinicianScoreSummary,
     FailureExample,
@@ -200,7 +200,24 @@ def summary(db: DbDep, _user: CurrentUser) -> ResultsSummary:
         failure_examples=_failure_examples(items),
         fallback_generations=db.query(Generation).filter(Generation.is_fallback.is_(True)).count(),
         fallback_excluded_from_metrics=True,
+        ocr_benchmark=_latest_ocr_benchmark(db),
     )
+
+
+def _latest_ocr_benchmark(db) -> dict | None:
+    row = db.query(OcrBenchmarkRun).order_by(OcrBenchmarkRun.id.desc()).first()
+    if not row:
+        return None
+    payload = row.results_json or {}
+    return {
+        "id": row.id,
+        "engine": row.engine,
+        "engine_version": row.engine_version,
+        "created_at": row.created_at.isoformat() if row.created_at else None,
+        "summary": payload.get("summary") or {},
+        "n_reports": len(row.report_ids or []),
+        "reference": "TCGA-Reports (Kefeli et al.; AWS Textract)",
+    }
 
 
 @router.get("/export.csv")

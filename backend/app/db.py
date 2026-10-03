@@ -72,6 +72,8 @@ def _ensure_generation_fallback_columns() -> None:
         ("requested_model", "ALTER TABLE generations ADD COLUMN requested_model VARCHAR(128)"),
         ("explanation_retried", "ALTER TABLE generations ADD COLUMN explanation_retried BOOLEAN DEFAULT 0 NOT NULL"),
         ("grounding_check_json", "ALTER TABLE generations ADD COLUMN grounding_check_json JSON"),
+        ("text_source", "ALTER TABLE generations ADD COLUMN text_source VARCHAR(32) DEFAULT 'reference' NOT NULL"),
+        ("ocr_run_id", "ALTER TABLE generations ADD COLUMN ocr_run_id INTEGER"),
     ]
     ddl_pg = [
         ("is_fallback", "ALTER TABLE generations ADD COLUMN is_fallback BOOLEAN DEFAULT FALSE NOT NULL"),
@@ -83,6 +85,11 @@ def _ensure_generation_fallback_columns() -> None:
             "ALTER TABLE generations ADD COLUMN explanation_retried BOOLEAN DEFAULT FALSE NOT NULL",
         ),
         ("grounding_check_json", "ALTER TABLE generations ADD COLUMN grounding_check_json JSON"),
+        (
+            "text_source",
+            "ALTER TABLE generations ADD COLUMN text_source VARCHAR(32) DEFAULT 'reference' NOT NULL",
+        ),
+        ("ocr_run_id", "ALTER TABLE generations ADD COLUMN ocr_run_id INTEGER"),
     ]
     with engine.begin() as conn:
         if engine.url.get_backend_name() == "sqlite":

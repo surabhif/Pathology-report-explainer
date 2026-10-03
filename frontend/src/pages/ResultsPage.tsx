@@ -48,6 +48,47 @@ function MetricTable({ rows }: { rows: MetricWithCI[] }) {
   )
 }
 
+function asMetric(raw: unknown): MetricWithCI | null {
+  if (!raw || typeof raw !== 'object') return null
+  const m = raw as Partial<MetricWithCI>
+  if (typeof m.name !== 'string' || typeof m.value !== 'number') return null
+  return {
+    name: m.name,
+    value: m.value,
+    n: m.n ?? 0,
+    ci_low: m.ci_low ?? m.value,
+    ci_high: m.ci_high ?? m.value,
+    method: m.method ?? 'normal',
+  }
+}
+
+function OcrBenchmarkPanel({ summary }: { summary: Record<string, unknown> }) {
+  const overall = (summary.overall || {}) as Record<string, unknown>
+  const byCancer = (summary.by_cancer_type || {}) as Record<string, Record<string, unknown>>
+  const impact = (summary.extraction_impact || {}) as Record<string, unknown>
+  const rows: MetricWithCI[] = []
+  const cer = asMetric(overall.cer)
+  const wer = asMetric(overall.wer)
+  if (cer) rows.push({ ...cer, name: 'ocr_cer' })
+  if (wer) rows.push({ ...wer, name: 'ocr_wer' })
+  for (const [ct, block] of Object.entries(byCancer)) {
+    const c = asMetric(block.cer)
+    const w = asMetric(block.wer)
+    if (c) rows.push({ ...c, name: `ocr_cer_${ct}` })
+    if (w) rows.push({ ...w, name: `ocr_wer_${ct}` })
+  }
+  const ourAcc = asMetric(impact.field_accuracy_from_our_ocr)
+  const refAcc = asMetric(impact.field_accuracy_from_reference)
+  if (ourAcc) rows.push(ourAcc)
+  if (refAcc) rows.push(refAcc)
+  return (
+    <>
+      <MetricTable rows={rows} />
+      {typeof impact.note === 'string' && <p className="muted">{impact.note}</p>}
+    </>
+  )
+}
+
 export function ResultsPage() {
   const { user } = useAuth()
   const [data, setData] = useState<ResultsSummary | null>(null)
@@ -197,6 +238,26 @@ export function ResultsPage() {
             ) : (
               <p className="muted">
                 Per-field metrics appear after gold annotations + auto-checks with field_accuracy.
+              </p>
+            )}
+          </div>
+
+          <div className="panel">
+            <h2 className="section-title" style={{ fontSize: '1.1rem' }}>
+              OCR benchmark (vs TCGA-Reports / Textract)
+            </h2>
+            {data.ocr_benchmark?.summary ? (
+              <>
+                <p className="muted">
+                  Engine: {data.ocr_benchmark.engine} / {data.ocr_benchmark.engine_version} · n=
+                  {data.ocr_benchmark.n_reports} · reference: {data.ocr_benchmark.reference}
+                </p>
+                <OcrBenchmarkPanel summary={data.ocr_benchmark.summary} />
+              </>
+            ) : (
+              <p className="muted">
+                No OCR benchmark yet. Admins can run one from Admin → Run OCR benchmark (stratified
+                by cancer type; measures CER/WER and extraction impact).
               </p>
             )}
           </div>

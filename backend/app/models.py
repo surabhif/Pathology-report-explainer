@@ -130,10 +130,47 @@ class Generation(Base):
     explanation_retried: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     # Snapshot of unsupported_sentences check (flagged indices/reasons) at save time.
     grounding_check_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    # Which text was explained: reference (TCGA-Reports) | our_ocr
+    text_source: Mapped[str] = mapped_column(String(32), nullable=False, default="reference")
+    ocr_run_id: Mapped[int | None] = mapped_column(ForeignKey("ocr_runs.id"), nullable=True)
     facts_json: Mapped[dict] = mapped_column(JSON, nullable=False)
     explanation_json: Mapped[dict] = mapped_column(JSON, nullable=False)
     reading_level_original: Mapped[float | None] = mapped_column(Float, nullable=True)
     reading_level_explanation: Mapped[float | None] = mapped_column(Float, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class OcrRun(Base):
+    """Cached OCR transcript for a report + engine/version (PathExplain-owned OCR)."""
+
+    __tablename__ = "ocr_runs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    report_id: Mapped[int] = mapped_column(ForeignKey("reports.id"), nullable=False, index=True)
+    engine: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    engine_version: Mapped[str] = mapped_column(String(128), nullable=False, default="")
+    model: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    text: Mapped[str] = mapped_column(Text, nullable=False)
+    pages_json: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    duration_ms: Mapped[float | None] = mapped_column(Float, nullable=True)
+    estimated_cost_usd: Mapped[float | None] = mapped_column(Float, nullable=True)
+    cer: Mapped[float | None] = mapped_column(Float, nullable=True)
+    wer: Mapped[float | None] = mapped_column(Float, nullable=True)
+    cache_key: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    meta_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class OcrBenchmarkRun(Base):
+    """Aggregated OCR vs Textract reference + extraction-impact study."""
+
+    __tablename__ = "ocr_benchmark_runs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    engine: Mapped[str] = mapped_column(String(64), nullable=False)
+    engine_version: Mapped[str] = mapped_column(String(128), nullable=False, default="")
+    report_ids: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
+    results_json: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 
 from app.auth import create_invite_user
 from app.deps import AdminUser, DbDep
@@ -258,4 +258,75 @@ def run_auto_checks(body: AutoCheckRequest, db: DbDep, _admin: AdminUser) -> dic
         "count": len(per_gen),
         "fallback_count": len(fallback_gen),
         "results": run.results_json,
+    }
+
+
+@router.post("/ocr/benchmark")
+async def ocr_benchmark(
+    db: DbDep,
+    _admin: AdminUser,
+    engine: str | None = None,
+    force: bool = False,
+) -> dict:
+    """Run stratified OCR benchmark vs TCGA-Reports (Textract) + extraction impact."""
+    from app.services.ocr.benchmark import run_ocr_benchmark
+
+    try:
+        run = await run_ocr_benchmark(db, engine_name=engine, force=force)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    summary = (run.results_json or {}).get("summary") or {}
+    return {
+        "benchmark_id": run.id,
+        "engine": run.engine,
+        "engine_version": run.engine_version,
+        "summary": summary,
+        "n_reports": len(run.report_ids or []),
+    }
+
+
+@router.post("/ocr/upload-test")
+async def ocr_upload_test(
+    db: DbDep,
+    _admin: AdminUser,
+    file: UploadFile = File(...),
+    engine: str | None = None,
+    acknowledge_deidentified: bool = Form(False),
+) -> dict:
+    """Admin-only OCR of a de-identified / TCGA test page image.
+
+    Public demo never accepts uploads (PHI risk). This endpoint requires an
+    explicit acknowledgement and stores only OCR text + metrics needed for eval.
+    """
+    if not acknowledge_deidentified:
+        raise HTTPException(
+            400,
+            "Set acknowledge_deidentified=true. Only TCGA or de-identified test files — never real PHI.",
+        )
+    from app.services.ocr.factory import get_ocr_engine
+
+    name = (file.filename or "").lower()
+    if not any(name.endswith(ext) for ext in (".jpg", ".jpeg", ".png", ".tif", ".tiff", ".webp")):
+        raise HTTPException(400, "Only page images are accepted (.jpg/.png/.tif)")
+    blob = await file.read()
+    if len(blob) > 8_000_000:
+        raise HTTPException(400, "File too large (max 8MB)")
+    if not blob:
+        raise HTTPException(400, "Empty file")
+
+    eng = get_ocr_engine(engine)
+    mime = "image/png" if name.endswith(".png") else "image/jpeg"
+    page = await eng.ocr_image_bytes(blob, mime=mime, page=1)
+    # Do not persist the uploaded image bytes — evaluation text only, ephemeral response.
+    return {
+        "warning": (
+            "Admin test OCR only. Do not upload real patient reports. "
+            "Image bytes are not stored; only the returned transcript is echoed."
+        ),
+        "engine": eng.engine_id(),
+        "engine_version": eng.engine_version(),
+        "duration_ms": page.duration_ms,
+        "text": page.text,
+        "chars": len(page.text),
+        "filename": file.filename,
     }

@@ -53,6 +53,16 @@ class Settings(BaseSettings):
     # HTTP timeout for hosted LLM calls (seconds). Reasoning models may need more.
     llm_timeout_seconds: float = 120.0
 
+    # --- OCR (scan → text) ---
+    # OCR_ENGINE: tesseract (default, free) | xai_vision | mock
+    ocr_engine: str = "tesseract"
+    # Max pages to OCR per report (keep bounded for cost/latency).
+    ocr_max_pages: int = 2
+    # Vision model override (empty → use LLM_MODEL / xAI default).
+    ocr_vision_model: str = ""
+    # image detail for xAI vision: low (cheap) | high | auto
+    ocr_vision_detail: str = "low"
+
     # --- CORS ---
     cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
 

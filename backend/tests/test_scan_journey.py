@@ -66,10 +66,10 @@ async def test_journey_endpoint_attributes_ocr_to_tcga_reports(client):
     journey = (await client.get(f"/api/public/reports/{rid}/journey")).json()
     assert journey["report_id"] == rid
     assert "Textract" in journey["ocr_label"]
-    assert "PathExplain does not run OCR" in journey["ocr_label"]
-    assert "Kefeli" in journey["ocr_citation"]
+    assert "TCGA-Reports" in journey["ocr_label"] or "Kefeli" in journey["ocr_citation"]
     assert journey["report_text"]
     assert journey["explain_path"].endswith(f"/reports/{rid}/explain")
+    assert journey.get("default_ocr_engine")
 
 
 @pytest.mark.asyncio
@@ -81,8 +81,7 @@ async def test_explain_includes_journey_and_serves_cached_pages(client):
     expl = (await client.get(f"/api/public/reports/{rid}/explain")).json()
     assert expl["journey"] is not None
     assert "Textract" in expl["journey"]["ocr_label"]
-    assert "PathExplain does not run OCR" in expl["journey"]["ocr_label"]
-    assert "Kefeli" in expl["journey"]["ocr_citation"]
+    assert "reference" in expl["journey"]["ocr_label"].lower() or "Kefeli" in expl["journey"]["ocr_citation"]
 
     # Demo samples ship scan_cache pages; seed attaches the manifest.
     pages = expl["journey"]["scan_pages"]

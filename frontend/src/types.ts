@@ -69,6 +69,21 @@ export interface ScanPageOut {
   height?: number | null
 }
 
+export interface OurOcrOut {
+  ocr_run_id: number
+  engine: string
+  engine_version: string
+  model?: string | null
+  text: string
+  duration_ms?: number | null
+  estimated_cost_usd?: number | null
+  cer?: number | null
+  wer?: number | null
+  page_count?: number
+  label?: string
+  note?: string
+}
+
 export interface ReportJourneyOut {
   report_id: number
   tcga_barcode: string
@@ -80,7 +95,32 @@ export interface ReportJourneyOut {
   ocr_label: string
   ocr_citation: string
   report_text: string
+  our_ocr?: OurOcrOut | null
+  default_ocr_engine?: string
+  available_ocr_engines?: string[]
   explain_path: string
+}
+
+export interface OcrRunOut {
+  id: number
+  report_id: number
+  engine: string
+  engine_version: string
+  model?: string | null
+  text: string
+  duration_ms?: number | null
+  estimated_cost_usd?: number | null
+  cer?: number | null
+  wer?: number | null
+  pages?: Array<Record<string, unknown>>
+  created_at?: string | null
+}
+
+export interface OcrDiffOut {
+  ops: Array<{ op: string; ref: string; hyp: string }>
+  changed: number
+  cer?: number | null
+  wer?: number | null
 }
 
 export interface GlossaryTerm {
@@ -112,6 +152,8 @@ export interface ExplainResponse {
     flagged?: Array<{ index: number; reasons: string[]; sentence?: string }>
   } | null
   journey?: ReportJourneyOut | null
+  text_source?: string
+  ocr_run_id?: number | null
   glossary?: GlossaryTerm[]
 }
 
@@ -220,6 +262,15 @@ export interface ResultsSummary {
   failure_examples?: FailureExample[]
   fallback_generations?: number
   fallback_excluded_from_metrics?: boolean
+  ocr_benchmark?: {
+    id: number
+    engine: string
+    engine_version: string
+    created_at?: string | null
+    summary?: Record<string, unknown>
+    n_reports?: number
+    reference?: string
+  } | null
 }
 
 export interface AboutOut {

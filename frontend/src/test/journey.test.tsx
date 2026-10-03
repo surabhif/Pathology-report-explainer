@@ -18,10 +18,20 @@ const journey: ReportJourneyOut = {
       height: 1100,
     },
   ],
-  ocr_label:
-    'Machine-readable OCR text from TCGA-Reports (Kefeli et al., Patterns 2024; AWS Textract). PathExplain does not run OCR.',
+  ocr_label: 'Machine-readable OCR text from TCGA-Reports (Kefeli et al., Patterns 2024; AWS Textract).',
   ocr_citation: 'Kefeli et al., Patterns 2024.',
   report_text: 'Histologic type: Invasive ductal carcinoma. Tumor size: 2.1 cm.',
+  our_ocr: {
+    ocr_run_id: 1,
+    engine: 'tesseract',
+    engine_version: 'tesseract-5.3.4',
+    text: 'Histologic type: Invasive ductal carcinoma. Tumor size: 2.1 cm.',
+    duration_ms: 120,
+    cer: 0.02,
+    wer: 0.05,
+    page_count: 1,
+  },
+  default_ocr_engine: 'tesseract',
   explain_path: '/api/public/reports/1/explain',
 }
 
@@ -89,8 +99,8 @@ describe('ReportJourney', () => {
     expect(screen.getByText(/layout facsimile/i)).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('tab', { name: /OCR text/i }))
-    expect(screen.getByText(/PathExplain does not run OCR/i)).toBeInTheDocument()
-    expect(screen.getAllByText(/Kefeli/i).length).toBeGreaterThan(0)
+    expect(screen.getByRole('button', { name: /Our OCR/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /TCGA-Reports OCR/i })).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('tab', { name: /Facts & explanation/i }))
     expect(screen.getByRole('heading', { name: /^Structured facts$/i })).toBeInTheDocument()

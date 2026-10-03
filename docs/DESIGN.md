@@ -59,19 +59,35 @@ React (required) + Vite + TypeScript. Simple CSS with a calm teal/slate research
 
 ## Three-stage public demo journey
 
-Salil’s product ask: show how a scanned page becomes structured content.
+Salil’s product ask: show how a scanned page becomes structured content — **owned end-to-end by PathExplain**.
 
 1. **Scanned report** — open-access TCGA pathology PDF page images from the NCI GDC (`Clinical` / `Pathology Report` / `PDF`), fetched at import/build time into `data/scan_cache/` (never hot-linked at runtime). If GDC is down while packaging, we ship a clearly labeled **OCR-text facsimile** so the layout still demos; the UI must not claim it is a GDC scan.
-2. **OCR text** — machine-readable text from **TCGA-Reports (Kefeli et al., Patterns 2024; AWS Textract)**. PathExplain does **not** run OCR. Stage 2 is labeled and cited accordingly.
-3. **Facts & explanation** — PathExplain’s contribution: structured fact sheet with quotes + grounded plain-language explanation. Clicking a fact highlights its quote in the OCR text (side-by-side).
+2. **OCR text** — PathExplain runs **its own OCR** on the cached pages. Default engine: **Tesseract** (free, Render-friendly via `backend/Dockerfile`). Optional: **xAI Grok vision** (`OCR_ENGINE=xai_vision`) through chat completions image input (`image_url` / `detail=low|high`). Stage 2 also keeps the **TCGA-Reports / Textract** transcript (Kefeli et al.) as a **reference** for CER/WER and side-by-side / diff comparison — not as “our” OCR.
+3. **Facts & explanation** — structured fact sheet + grounded explanation. Users can explain from Our OCR or the reference transcript; quotes ground in the chosen text.
 
-Tradeoff: highlighting matching regions on the scan image would need OCR bounding boxes we do not have from Textract outputs in this corpus; we skip scan-region highlight rather than fake it.
+### OCR engine comparison (why Tesseract is default)
+
+| Engine | Pros | Cons | When to use |
+|--------|------|------|-------------|
+| **Tesseract** (default) | Free; no API key; predictable; fits Render free tier with Dockerfile | Weaker on noisy scans | Demo, CI, benchmarks, cost control |
+| **xAI Grok vision** | Strong on hard layouts; uses existing `LLM_PROVIDER=xai` key | Token + latency cost; needs key | Ablations / quality comparison (`OCR_ENGINE=xai_vision`) |
+
+Every OCR run stores `engine`, `engine_version`, timing (`duration_ms`), and optional `estimated_cost_usd`. Results are disk-cached under `data/ocr_cache/` and in `ocr_runs` so demos do not re-spend vision tokens.
+
+**Cost / latency bounds:** max `OCR_MAX_PAGES` (default 2); vision `OCR_VISION_DETAIL=low` by default. Rough Grok vision budget: ~$0.002/page at low detail (order-of-magnitude; image tokens dominate). Tesseract: $0, typically &lt;2s/page locally.
+
+**PHI:** public demo never accepts arbitrary uploads. Admin-only `POST /api/admin/ocr/upload-test` requires `acknowledge_deidentified=true`, accepts page images only, and does **not** store image bytes.
+
+### Benchmark
+
+Admin → Run OCR benchmark (or `POST /api/admin/ocr/benchmark`) runs stratified sample reports (by cancer type), measures CER/WER vs Textract reference, and when gold labels exist compares field-extraction accuracy from Our OCR vs reference text. Results appear on the Results dashboard (`ocr_benchmark`).
 
 ## Future work
 
-- **Live OCR on uploaded scans** — optional later path: accept a page image, run OCR (e.g. Textract or open-source), then feed text into the existing extract→explain pipeline. Easy to add as a new stage-1 input without changing stages 2→3. **Not in MVP** (ethics: no PHI paste; keep demo on public TCGA only).
 - Prefer real GDC PDF page renders over facsimiles whenever GDC is reachable (`python backend/scripts/fetch_scan_pages.py --from-sample-data --force`).
-- Optional: use Textract geometry (if re-run) to highlight quote regions on the scan.
+- Optional: Textract geometry for scan-region quote highlight.
+- Optional: PaddleOCR / EasyOCR as a third engine for ablations.
+- Broader OCR benchmark beyond the six seeded samples once more scan pages are cached.
 
 ## What we deliberately stubbed or kept thin in MVP
 

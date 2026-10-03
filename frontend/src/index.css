@@ -767,6 +767,22 @@ button {
   font-size: 0.85rem;
 }
 
+.ocr-diff del {
+  background: #fee2e2;
+  text-decoration: line-through;
+  color: #9f1239;
+}
+
+.ocr-diff ins {
+  background: #d1fae5;
+  text-decoration: none;
+  color: #065f46;
+}
+
+.diff-equal {
+  color: var(--color-slate-700);
+}
+
 @media (max-width: 860px) {
   .hero,
   .explain-layout,

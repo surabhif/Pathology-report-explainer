@@ -12,6 +12,8 @@ import type {
   ExplainResponse,
   FactSpan,
   GlossaryTerm,
+  OcrDiffOut,
+  OcrRunOut,
   ProgressOut,
   ReportDetail,
   ReportJourneyOut,
@@ -145,12 +147,43 @@ export const api = {
     return request<ReportDetail>(`/api/public/reports/${reportId}`)
   },
 
-  explainReport(reportId: number) {
-    return request<ExplainResponse>(`/api/public/reports/${reportId}/explain`)
+  explainReport(reportId: number, opts?: { text_source?: 'reference' | 'our_ocr'; ocr_engine?: string }) {
+    const params = new URLSearchParams()
+    if (opts?.text_source) params.set('text_source', opts.text_source)
+    if (opts?.ocr_engine) params.set('ocr_engine', opts.ocr_engine)
+    const q = params.toString() ? `?${params.toString()}` : ''
+    return request<ExplainResponse>(`/api/public/reports/${reportId}/explain${q}`)
   },
 
   getReportJourney(reportId: number) {
     return request<ReportJourneyOut>(`/api/public/reports/${reportId}/journey`)
+  },
+
+  runReportOcr(reportId: number, engine?: string, force = false) {
+    const params = new URLSearchParams()
+    if (engine) params.set('engine', engine)
+    if (force) params.set('force', 'true')
+    const q = params.toString() ? `?${params.toString()}` : ''
+    return request<OcrRunOut>(`/api/public/reports/${reportId}/ocr${q}`)
+  },
+
+  getOcrDiff(reportId: number, engine?: string) {
+    const q = engine ? `?engine=${encodeURIComponent(engine)}` : ''
+    return request<OcrDiffOut>(`/api/public/reports/${reportId}/ocr/diff${q}`)
+  },
+
+  runOcrBenchmark(engine?: string, force = false) {
+    const params = new URLSearchParams()
+    if (engine) params.set('engine', engine)
+    if (force) params.set('force', 'true')
+    const q = params.toString() ? `?${params.toString()}` : ''
+    return request<{
+      benchmark_id: number
+      engine: string
+      engine_version: string
+      summary: Record<string, unknown>
+      n_reports: number
+    }>(`/api/admin/ocr/benchmark${q}`, { method: 'POST' }, true)
   },
 
   getGlossary() {
