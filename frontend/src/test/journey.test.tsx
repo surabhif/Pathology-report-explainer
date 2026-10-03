@@ -195,4 +195,84 @@ describe('ReportJourney', () => {
     expect(screen.queryByRole('button', { name: /^Our OCR$/i })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: /^Generate explanation$/i })).toBeInTheDocument()
   })
+
+  it('shows TCGA-Reports reference text when that OCR source is clicked', () => {
+    render(
+      <ReportJourney
+        journey={realScanJourney}
+        result={null}
+        glossary={[]}
+        activeFact={null}
+        activeSentence={null}
+        highlight={{ quote: null, start: null, end: null }}
+        onFactSelect={vi.fn()}
+        onSentenceSelect={vi.fn()}
+        onExplainWithSource={vi.fn()}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('tab', { name: /OCR text/i }))
+    fireEvent.click(screen.getByRole('button', { name: /TCGA-Reports OCR \(Kefeli et al\.\)/i }))
+
+    expect(
+      screen.getByRole('heading', { name: /TCGA-Reports reference text/i }),
+    ).toBeInTheDocument()
+    // Reference transcript from journey.report_text (not Our OCR).
+    expect(screen.getByText(/Invasive ductal carcinoma/i)).toBeInTheDocument()
+    expect(screen.getByText(/Tumor size: 2\.1 cm/i)).toBeInTheDocument()
+    expect(screen.getByText(/Citation:.*Kefeli/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Generate from reference/i })).toBeInTheDocument()
+  })
+
+  it('keeps the TCGA-Reports selection when a cached explanation arrives', () => {
+    const { rerender } = render(
+      <ReportJourney
+        journey={realScanJourney}
+        result={null}
+        glossary={[]}
+        activeFact={null}
+        activeSentence={null}
+        highlight={{ quote: null, start: null, end: null }}
+        onFactSelect={vi.fn()}
+        onSentenceSelect={vi.fn()}
+        onExplainWithSource={vi.fn()}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('tab', { name: /OCR text/i }))
+    fireEvent.click(screen.getByRole('button', { name: /TCGA-Reports OCR \(Kefeli et al\.\)/i }))
+    expect(
+      screen.getByRole('heading', { name: /TCGA-Reports reference text/i }),
+    ).toBeInTheDocument()
+
+    // Simulate HomePage receiving explain() → new journey object + result (old bug reset ocrView).
+    const updatedJourney: ReportJourneyOut = {
+      ...realScanJourney,
+      our_ocr: {
+        ...realScanJourney.our_ocr!,
+        ocr_run_id: 99,
+        note: 'Updated note after explain',
+      },
+    }
+    rerender(
+      <ReportJourney
+        journey={updatedJourney}
+        result={makeResult(updatedJourney)}
+        glossary={[]}
+        activeFact={null}
+        activeSentence={null}
+        highlight={{ quote: null, start: null, end: null }}
+        onFactSelect={vi.fn()}
+        onSentenceSelect={vi.fn()}
+        onExplainWithSource={vi.fn()}
+      />,
+    )
+
+    // User stayed on Stage 2 with reference text — not yanked to Stage 3 / Our OCR.
+    expect(
+      screen.getByRole('heading', { name: /TCGA-Reports reference text/i }),
+    ).toBeInTheDocument()
+    expect(screen.getByText(/Invasive ductal carcinoma/i)).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: /^Structured facts$/i })).not.toBeInTheDocument()
+  })
 })

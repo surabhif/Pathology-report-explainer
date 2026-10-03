@@ -112,6 +112,25 @@ async def test_journey_endpoint_attributes_ocr_to_tcga_reports(client):
 
 
 @pytest.mark.asyncio
+async def test_public_journey_includes_reference_text_for_stage2_toggle(client):
+    """Stage 2 'TCGA-Reports OCR' reads journey.report_text — must be present & distinct."""
+    reports = (await client.get("/api/public/reports?cancer_type=COAD")).json()
+    assert reports, "seed should include COAD samples"
+    # Prefer the production repro case when present.
+    target = next((r for r in reports if r["tcga_barcode"].startswith("TCGA-A6-3808")), reports[0])
+    journey = (await client.get(f"/api/public/reports/{target['id']}/journey")).json()
+    ref = journey.get("report_text") or ""
+    assert isinstance(ref, str) and len(ref) > 100
+    assert "report_text" in journey
+    # Our OCR (precomputed) is separate from the Textract reference transcript.
+    our = (journey.get("our_ocr") or {}).get("text") or ""
+    if our:
+        assert our != ref
+    assert journey.get("ocr_citation")
+    assert "Kefeli" in journey["ocr_citation"] or "Textract" in journey["ocr_citation"]
+
+
+@pytest.mark.asyncio
 async def test_explain_includes_journey_and_serves_cached_pages(client):
     reports = (await client.get("/api/public/reports?cancer_type=BRCA")).json()
     rid = reports[0]["id"]

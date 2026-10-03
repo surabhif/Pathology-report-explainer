@@ -3,7 +3,7 @@
  * Stage 2 can switch between Our OCR (PathExplain) and TCGA-Reports (Textract) reference,
  * with an optional word-level diff. Stage 3 waits for Generate (or a cached generation).
  */
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { ApiError, api, apiUrl } from '../api/client'
 import { ExplanationPanel } from './ExplanationPanel'
 import { FactSheetPanel } from './FactSheetPanel'
@@ -62,22 +62,50 @@ export function ReportJourney({
   const [ocrLoading, setOcrLoading] = useState(false)
   const [ocrError, setOcrError] = useState<string | null>(null)
   const [diff, setDiff] = useState<OcrDiffOut | null>(null)
+  // Once the user picks a stage, do not let journey/result updates undo it
+  // (cached explain finishing used to reset ocrView to "our" and yank Stage 2 → 3).
+  const userPickedStage = useRef(false)
   const hasRealScan = Boolean(journey.has_real_scan)
   const isGdc = journey.scan_source === 'gdc_pdf'
   const isTatonetti = journey.scan_source === 'tatonetti_textract_input'
 
   const visibleStages = STAGES.filter((s) => s.id !== 'scan' || hasRealScan)
 
+  // Reset only when switching reports — never on our_ocr object identity / explain arrival.
   useEffect(() => {
+    userPickedStage.current = false
     setOurOcr(journey.our_ocr ?? null)
     setOcrView(journey.has_real_scan ? 'our' : 'reference')
     setDiff(null)
-    if (result) {
+    setOcrError(null)
+    setStage(result ? 'explain' : journey.has_real_scan ? 'scan' : 'ocr')
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: report switch only
+  }, [journey.report_id])
+
+  // Keep precomputed OCR in sync without resetting the user's source toggle.
+  useEffect(() => {
+    if (journey.our_ocr) setOurOcr(journey.our_ocr)
+  }, [journey.report_id, journey.our_ocr?.ocr_run_id, journey.our_ocr?.text])
+
+  // Auto-open Stage 3 when a cached/fresh explanation arrives, unless the user
+  // already chose Stage 1 or 2 (browsing OCR / scans must not be interrupted).
+  useEffect(() => {
+    if (result && !userPickedStage.current) {
       setStage('explain')
-    } else {
-      setStage(journey.has_real_scan ? 'scan' : 'ocr')
     }
-  }, [journey.our_ocr, journey.report_id, journey.has_real_scan, result?.generation_id])
+  }, [result?.generation_id])
+
+  function goToStage(next: Stage) {
+    userPickedStage.current = true
+    setStage(next)
+    if (next === 'ocr' && hasRealScan) void ensureOurOcr()
+  }
+
+  function selectOcrView(next: OcrView) {
+    setOcrView(next)
+    if (next === 'our') void ensureOurOcr()
+    if (next === 'diff') void showDiff()
+  }
 
   async function ensureOurOcr() {
     if (ourOcr || ocrLoading) return ourOcr
@@ -150,10 +178,7 @@ export function ReportJourney({
             role="tab"
             aria-selected={stage === s.id}
             className={`journey-step ${stage === s.id ? 'active' : ''}`}
-            onClick={() => {
-              setStage(s.id)
-              if (s.id === 'ocr' && hasRealScan) void ensureOurOcr()
-            }}
+            onClick={() => goToStage(s.id)}
           >
             <span className="journey-step-n">{s.n}</span>
             <span>{s.title}</span>
@@ -227,10 +252,7 @@ export function ReportJourney({
                 <button
                   type="button"
                   className={`pill ${ocrView === 'our' ? 'active' : ''}`}
-                  onClick={() => {
-                    setOcrView('our')
-                    void ensureOurOcr()
-                  }}
+                  onClick={() => selectOcrView('our')}
                 >
                   Our OCR
                 </button>
@@ -238,7 +260,7 @@ export function ReportJourney({
               <button
                 type="button"
                 className={`pill ${ocrView === 'reference' ? 'active' : ''}`}
-                onClick={() => setOcrView('reference')}
+                onClick={() => selectOcrView('reference')}
               >
                 TCGA-Reports OCR (Kefeli et al.)
               </button>
@@ -246,7 +268,7 @@ export function ReportJourney({
                 <button
                   type="button"
                   className={`pill ${ocrView === 'diff' ? 'active' : ''}`}
-                  onClick={() => void showDiff()}
+                  onClick={() => selectOcrView('diff')}
                 >
                   Diff
                 </button>
