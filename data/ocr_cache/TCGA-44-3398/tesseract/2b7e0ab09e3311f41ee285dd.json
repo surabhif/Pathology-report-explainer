@@ -1,0 +1,36 @@
+{
+  "engine": "tesseract",
+  "engine_version": "tesseract-5.3.4",
+  "text": "SPECIMEN )\nA. Lymph node level 10\nB, Right lower lobe\nC. Lymph node level 7\n. D. Lymph node level 3\nE. Lymph node R4\nCLINICAL NOTES\nGROSS DESCRIPTION\nA, Received in formalin, labeled \"lymph node level 10\"\nand\nconsists of multiple pieces of black soft tissue measuring 2 cm in\ngreatest aggregate dimension. AS~1.\nB. The specimen is received unfixed labeled \"right lower\nlobe\" and consists of a lobe weighing 266 grams and\nmeasuring 16 x 12 x 7 cm. There is a subtotal probable mass\nmeasuring 2.5 x 1.5 x 2 cm. There is a puckered appearance over the\nmass. Portions of the specimen are taken for research purposes.\nAdditional sections after fixation. There is a stapled margin on\none\nside of the specimen measuring 5 cm in length and there is a\nstapled\nbronchial margin as well. i\nC. Received in formalin, labeled \"lymph node level 7\" and\nconsists of multiple pieces of black soft tissue\nmeasuring\n2 cm in greatest aggregate dimension. AS-1,\nD. Received in formalin, labeled \"lymph node level 3\u201d and\nconsists of a piece of white and black and yellow soft\ntissue measuring 2.5 x 1.5 x 0.3 cm. AS-1. |\nE. Received in formalin, labeled \"lymph node - R4\" and\nconsists of multiple pieces of yellow and black soft |\ntissue\nmeasuring 3 x 3 x 0.5 cm in aggregate. AS-2. |\n|\n\na\nMICROSCOPIC DESCRIPTION\nA. There is no evidence of malignancy in any of ten lymph node\n\npieces.\nB. Tumor type: Non-small cell carcinoma\nTumor grade: 3 out of 3\nMitotic Index: 1 mitoses/10 HP#s (1 HPF = 0.19 sq mm)\nfumor size: 2.5 cm\nBronchial resection margin: Negative for malignancy\nPulmonary margin of resection: Negative for malignancy\nPleura: Negative for malignancy\nVascular invasion: Absent\nAttached lymph nodes: There is no evidence of malignancy\nin\nany of 3 lymph nodes\npINM Stage: T1lb NO\nNon-tumorous lung: Mild to moderate emphysema\nCc. There's no evidence of malignancy in any of multiple lymph node\npieces. Approximately 12 pieces are present. \u00b0\nD. A single lymph node is negative for malignancy.\nE. There is no evidence of malignancy in any of 16 lymph node\npieces,\nDIAGNOSIS\nA. Lymph node, level 10, biopsy: There is no evidence of\nmalignancy in any of ten lymph node pieces.\nB, Lung, right lower lobe, resection: Poorly differentiated\nnon-small cell carcinoma",
+  "pages": [
+    {
+      "page": 1,
+      "text": "SPECIMEN )\nA. Lymph node level 10\nB, Right lower lobe\nC. Lymph node level 7\n. D. Lymph node level 3\nE. Lymph node R4\nCLINICAL NOTES\nGROSS DESCRIPTION\nA, Received in formalin, labeled \"lymph node level 10\"\nand\nconsists of multiple pieces of black soft tissue measuring 2 cm in\ngreatest aggregate dimension. AS~1.\nB. The specimen is received unfixed labeled \"right lower\nlobe\" and consists of a lobe weighing 266 grams and\nmeasuring 16 x 12 x 7 cm. There is a subtotal probable mass\nmeasuring 2.5 x 1.5 x 2 cm. There is a puckered appearance over the\nmass. Portions of the specimen are taken for research purposes.\nAdditional sections after fixation. There is a stapled margin on\none\nside of the specimen measuring 5 cm in length and there is a\nstapled\nbronchial margin as well. i\nC. Received in formalin, labeled \"lymph node level 7\" and\nconsists of multiple pieces of black soft tissue\nmeasuring\n2 cm in greatest aggregate dimension. AS-1,\nD. Received in formalin, labeled \"lymph node level 3\u201d and\nconsists of a piece of white and black and yellow soft\ntissue measuring 2.5 x 1.5 x 0.3 cm. AS-1. |\nE. Received in formalin, labeled \"lymph node - R4\" and\nconsists of multiple pieces of yellow and black soft |\ntissue\nmeasuring 3 x 3 x 0.5 cm in aggregate. AS-2. |\n|",
+      "duration_ms": 853.5128889998305,
+      "width": 1400,
+      "height": 1812,
+      "filename": "page-01.jpg"
+    },
+    {
+      "page": 2,
+      "text": "a\nMICROSCOPIC DESCRIPTION\nA. There is no evidence of malignancy in any of ten lymph node\n\npieces.\nB. Tumor type: Non-small cell carcinoma\nTumor grade: 3 out of 3\nMitotic Index: 1 mitoses/10 HP#s (1 HPF = 0.19 sq mm)\nfumor size: 2.5 cm\nBronchial resection margin: Negative for malignancy\nPulmonary margin of resection: Negative for malignancy\nPleura: Negative for malignancy\nVascular invasion: Absent\nAttached lymph nodes: There is no evidence of malignancy\nin\nany of 3 lymph nodes\npINM Stage: T1lb NO\nNon-tumorous lung: Mild to moderate emphysema\nCc. There's no evidence of malignancy in any of multiple lymph node\npieces. Approximately 12 pieces are present. \u00b0\nD. A single lymph node is negative for malignancy.\nE. There is no evidence of malignancy in any of 16 lymph node\npieces,\nDIAGNOSIS\nA. Lymph node, level 10, biopsy: There is no evidence of\nmalignancy in any of ten lymph node pieces.\nB, Lung, right lower lobe, resection: Poorly differentiated\nnon-small cell carcinoma",
+      "duration_ms": 603.7807259999681,
+      "width": 1400,
+      "height": 1810,
+      "filename": "page-02.jpg"
+    }
+  ],
+  "duration_ms": 1458.554696999272,
+  "estimated_cost_usd": null,
+  "model": null,
+  "meta": {
+    "cache_key": "2b7e0ab09e3311f41ee285dd",
+    "page_count": 2,
+    "cer": 0.1444,
+    "wer": 0.2883,
+    "ref_chars": 2556,
+    "hyp_chars": 2241,
+    "ref_words": 437,
+    "hyp_words": 394
+  }
+}

@@ -1,0 +1,40 @@
+{
+  "version": "1",
+  "name": "Clinician Review Rubric v1",
+  "scales": {
+    "accuracy": {
+      "min": 1,
+      "max": 5,
+      "description": "How accurately the explanation reflects the pathology report findings.",
+      "anchors": {
+        "1": "Major factual errors",
+        "3": "Mostly accurate with minor issues",
+        "5": "Fully accurate and precise"
+      }
+    },
+    "completeness": {
+      "min": 1,
+      "max": 5,
+      "description": "Whether key report findings are covered without unnecessary omission.",
+      "anchors": {
+        "1": "Many key findings missing",
+        "3": "Main findings present; some gaps",
+        "5": "All key findings covered appropriately"
+      }
+    },
+    "harm_potential": {
+      "min": 1,
+      "max": 5,
+      "description": "Potential for the explanation to mislead or cause harm if taken at face value. Higher = more harm potential.",
+      "anchors": {
+        "1": "Unlikely to mislead",
+        "3": "Some risk of misunderstanding",
+        "5": "High risk of harmful misunderstanding"
+      }
+    }
+  },
+  "flagging": {
+    "flagged_sentences": "0-based indices of explanation sentences that are unsupported, misleading, or harmful."
+  },
+  "notes": "Clinicians should not be shown model or prompt version during review."
+}

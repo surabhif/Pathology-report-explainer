@@ -1,0 +1,28 @@
+{
+  "engine": "tesseract",
+  "engine_version": "tesseract-5.3.4",
+  "text": "= page 1/1\nDepartment of Cancer Pathology\ncopy No.\nDate: ~ _\n9\n\\ _ TT  SSSSSSSSSSSSSSSSseeFeFesesFSSSSSSSSF\nExamination: Histopathological examination\nInternal invoice No. Value of diagnostic procedure \u00a3xamination No.:\nPatient: XXX PESEL: XXX Age: Gender: F\nial: eft breastwith axillary ti 1-0-9\nvv oe le organ resection = | rea ith axillary tissues . one, aS porches Hes $500 fs\nPhysician in charge: \u2018 Sites rtat, nas C509 fy fiofu\nMaterial collected on: Material received on: \u2018\nExpected time of examination: up to 8 working days\nClinical diagnosis: Cancer of the left breast. . -\nExamination performed on:\n' janan\nLeft breast sizdd 16.8 x 15.3 x 5.2 cm removed along with axillary tissues sized 10 x 6 x 5 cm and a 16.2 x 9.8 cm skin flap anda\nfragment of the muscle sized 4 x 3 cm. Weight 620 g.\nTumour sized 3.5 x 3 x 3 cm found in the inner upper quadrant, 1 cm from the inner boundary, 0.2 cm from the base and 0.8 cm\nfrom the skin.\n, . ienen:\n\n@& Carcinoma ductale invasivum \u2014 NHG3 (3+3+3/36 mitoses/10 HPF - visual area: 0.5Smm\u2019 OseabwacOE=CotB-4913 naEe FIaFFRICRNTE\nManilla sine laesionibus. we FUGA: DB-AINK-OUA-PR Redacted\nGlandular tissue with lesions of the type mastopathia flarosa and cystic. Hl Hi TEACH AN A HL II i MA\nhailey hmphnodes oa\neee me node sein iymphonods (ox WANTON EUAN AUT\nCarcinoma invasivum mammiae sinistrae. invasive ductal carcinoma of the left breast\nMetastases carcinomatosae in lymphonodis axillae (NHG3, pTZ, pN1a). Cancer metastases in axillary lymph nodes.\n\nCompliance validated b .\nExamination performed on: _\nR fi . , on\nNo estrogen receptors found in neoplastic cell nuclei.\nNo progesterone receptors found in neoplastic cell nuclei.\nHER2 protein stained with HercepTest\u2122 by DAKO.\nNegative reaction in invasive carcinoma cells ( Score = 0).\nCompliance validated by: 1\nCONTACT YOUR DOCTOR WITH THIS hei Ot we |\nintone ag =\n\n4 > Qualittono: Pras fied \u2014\u2014- =\n\nx selene A Noone ee?\n\ni Nabe se\" = :",
+  "pages": [
+    {
+      "page": 1,
+      "text": "= page 1/1\nDepartment of Cancer Pathology\ncopy No.\nDate: ~ _\n9\n\\ _ TT  SSSSSSSSSSSSSSSSseeFeFesesFSSSSSSSSF\nExamination: Histopathological examination\nInternal invoice No. Value of diagnostic procedure \u00a3xamination No.:\nPatient: XXX PESEL: XXX Age: Gender: F\nial: eft breastwith axillary ti 1-0-9\nvv oe le organ resection = | rea ith axillary tissues . one, aS porches Hes $500 fs\nPhysician in charge: \u2018 Sites rtat, nas C509 fy fiofu\nMaterial collected on: Material received on: \u2018\nExpected time of examination: up to 8 working days\nClinical diagnosis: Cancer of the left breast. . -\nExamination performed on:\n' janan\nLeft breast sizdd 16.8 x 15.3 x 5.2 cm removed along with axillary tissues sized 10 x 6 x 5 cm and a 16.2 x 9.8 cm skin flap anda\nfragment of the muscle sized 4 x 3 cm. Weight 620 g.\nTumour sized 3.5 x 3 x 3 cm found in the inner upper quadrant, 1 cm from the inner boundary, 0.2 cm from the base and 0.8 cm\nfrom the skin.\n, . ienen:\n\n@& Carcinoma ductale invasivum \u2014 NHG3 (3+3+3/36 mitoses/10 HPF - visual area: 0.5Smm\u2019 OseabwacOE=CotB-4913 naEe FIaFFRICRNTE\nManilla sine laesionibus. we FUGA: DB-AINK-OUA-PR Redacted\nGlandular tissue with lesions of the type mastopathia flarosa and cystic. Hl Hi TEACH AN A HL II i MA\nhailey hmphnodes oa\neee me node sein iymphonods (ox WANTON EUAN AUT\nCarcinoma invasivum mammiae sinistrae. invasive ductal carcinoma of the left breast\nMetastases carcinomatosae in lymphonodis axillae (NHG3, pTZ, pN1a). Cancer metastases in axillary lymph nodes.\n\nCompliance validated b .\nExamination performed on: _\nR fi . , on\nNo estrogen receptors found in neoplastic cell nuclei.\nNo progesterone receptors found in neoplastic cell nuclei.\nHER2 protein stained with HercepTest\u2122 by DAKO.\nNegative reaction in invasive carcinoma cells ( Score = 0).\nCompliance validated by: 1\nCONTACT YOUR DOCTOR WITH THIS hei Ot we |\nintone ag =\n\n4 > Qualittono: Pras fied \u2014\u2014- =\n\nx selene A Noone ee?\n\ni Nabe se\" = :",
+      "duration_ms": 972.750504999567,
+      "width": 1400,
+      "height": 1812,
+      "filename": "page-01.jpg"
+    }
+  ],
+  "duration_ms": 976.1748749997423,
+  "estimated_cost_usd": null,
+  "model": null,
+  "meta": {
+    "cache_key": "24b631b276ff780c462c4e22",
+    "page_count": 1,
+    "cer": 0.5397,
+    "wer": 0.7333,
+    "ref_chars": 1447,
+    "hyp_chars": 1932,
+    "ref_words": 225,
+    "hyp_words": 335
+  }
+}

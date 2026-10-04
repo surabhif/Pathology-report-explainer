@@ -1,0 +1,353 @@
+/**
+ * Thin fetch wrapper around the FastAPI backend.
+ *
+ * Auth: backend deps.py reads `X-Session-Token` (preferred) or the session cookie.
+ * We store the session token in localStorage after /api/auth/redeem and send it
+ * on every authenticated request.
+ */
+
+import type {
+  AnnotationTaskOut,
+  EvaluationSetOut,
+  ExplainResponse,
+  FactSpan,
+  GlossaryTerm,
+  OcrDiffOut,
+  OcrRunOut,
+  ProgressOut,
+  ReportDetail,
+  ReportJourneyOut,
+  ReportSummary,
+  ResultsSummary,
+  ReviewScores,
+  ReviewTaskOut,
+  SessionOut,
+  TaskBatchOut,
+  UserOut,
+} from '../types'
+
+const SESSION_KEY = 'pathexplain_session'
+const USER_KEY = 'pathexplain_user'
+
+/** Test-only override for apiBase (Vitest cannot reliably mutate import.meta.env). */
+let _apiBaseOverride: string | null = null
+
+/** @internal */
+export function __setApiBaseForTests(value: string | null) {
+  _apiBaseOverride = value
+}
+
+/** Base URL: optional absolute origin, otherwise same-origin (Vite proxy /api). */
+export function apiBase(): string {
+  if (_apiBaseOverride !== null) return _apiBaseOverride.replace(/\/$/, '')
+  const env = import.meta.env.VITE_API_BASE_URL as string | undefined
+  if (env && env.trim()) return env.replace(/\/$/, '')
+  return ''
+}
+
+/** Resolve a backend path (e.g. `/api/...`) against `VITE_API_BASE_URL` for img/href. */
+export function apiUrl(path: string): string {
+  if (!path) return path
+  if (/^https?:\/\//i.test(path) || path.startsWith('data:') || path.startsWith('blob:')) {
+    return path
+  }
+  const base = apiBase()
+  const normalized = path.startsWith('/') ? path : `/${path}`
+  return `${base}${normalized}`
+}
+
+export function getStoredSession(): string | null {
+  return localStorage.getItem(SESSION_KEY)
+}
+
+export function getStoredUser(): UserOut | null {
+  const raw = localStorage.getItem(USER_KEY)
+  if (!raw) return null
+  try {
+    return JSON.parse(raw) as UserOut
+  } catch {
+    return null
+  }
+}
+
+export function storeSession(session: SessionOut): void {
+  localStorage.setItem(SESSION_KEY, session.session_token)
+  localStorage.setItem(USER_KEY, JSON.stringify(session.user))
+}
+
+export function clearSession(): void {
+  localStorage.removeItem(SESSION_KEY)
+  localStorage.removeItem(USER_KEY)
+}
+
+export class ApiError extends Error {
+  status: number
+  detail: string
+
+  constructor(status: number, detail: string) {
+    super(detail)
+    this.status = status
+    this.detail = detail
+  }
+}
+
+async function request<T>(
+  path: string,
+  options: RequestInit = {},
+  auth = false,
+): Promise<T> {
+  const headers = new Headers(options.headers)
+  if (!headers.has('Content-Type') && options.body) {
+    headers.set('Content-Type', 'application/json')
+  }
+  if (auth) {
+    const token = getStoredSession()
+    if (token) {
+      // Match backend: X-Session-Token (Cookie also works via redeem response).
+      headers.set('X-Session-Token', token)
+    }
+  }
+
+  const res = await fetch(`${apiBase()}${path}`, { ...options, headers })
+  if (!res.ok) {
+    let detail = res.statusText
+    try {
+      const body = (await res.json()) as {
+        detail?: string | { message?: string; code?: string }
+      }
+      if (typeof body.detail === 'string') {
+        detail = body.detail
+      } else if (body.detail && typeof body.detail === 'object' && body.detail.message) {
+        detail = body.detail.message
+      } else if (body.detail) {
+        detail = JSON.stringify(body.detail)
+      }
+    } catch {
+      /* ignore parse errors */
+    }
+    throw new ApiError(res.status, detail)
+  }
+
+  // CSV / empty responses
+  const ctype = res.headers.get('content-type') || ''
+  if (ctype.includes('text/csv') || ctype.includes('text/plain')) {
+    return (await res.text()) as T
+  }
+  if (res.status === 204) return undefined as T
+  return (await res.json()) as T
+}
+
+// ---------------------------------------------------------------------------
+// Auth
+// ---------------------------------------------------------------------------
+
+export const api = {
+  redeemInvite(token: string) {
+    return request<SessionOut>('/api/auth/redeem', {
+      method: 'POST',
+      body: JSON.stringify({ token }),
+    })
+  },
+
+  me() {
+    return request<UserOut>('/api/auth/me', {}, true)
+  },
+
+  logout() {
+    return request<{ ok: boolean }>('/api/auth/logout', { method: 'POST' }, true)
+  },
+
+  // Public
+  listReports(cancerType?: string) {
+    const q = cancerType ? `?cancer_type=${encodeURIComponent(cancerType)}` : ''
+    return request<ReportSummary[]>(`/api/public/reports${q}`)
+  },
+
+  getReport(reportId: number) {
+    return request<ReportDetail>(`/api/public/reports/${reportId}`)
+  },
+
+  explainReport(reportId: number, opts?: { text_source?: 'reference' | 'our_ocr'; ocr_engine?: string }) {
+    const params = new URLSearchParams()
+    if (opts?.text_source) params.set('text_source', opts.text_source)
+    if (opts?.ocr_engine) params.set('ocr_engine', opts.ocr_engine)
+    const q = params.toString() ? `?${params.toString()}` : ''
+    return request<ExplainResponse>(`/api/public/reports/${reportId}/explain${q}`)
+  },
+
+  getReportJourney(reportId: number) {
+    return request<ReportJourneyOut>(`/api/public/reports/${reportId}/journey`)
+  },
+
+  getHealth() {
+    return request<{
+      ok: boolean
+      provider?: string
+      app_env?: string
+      show_demo_tokens?: boolean
+    }>('/api/health')
+  },
+
+  runReportOcr(reportId: number, engine?: string) {
+    const params = new URLSearchParams()
+    if (engine) params.set('engine', engine)
+    const q = params.toString() ? `?${params.toString()}` : ''
+    return request<OcrRunOut>(`/api/public/reports/${reportId}/ocr${q}`)
+  },
+
+  adminRunOcr(reportId: number, engine?: string, force = true) {
+    const params = new URLSearchParams()
+    params.set('report_id', String(reportId))
+    if (engine) params.set('engine', engine)
+    if (force) params.set('force', 'true')
+    return request<OcrRunOut>(`/api/admin/ocr/run?${params.toString()}`, { method: 'POST' }, true)
+  },
+
+  importOcrBenchmark(force = false) {
+    const q = force ? '?force=true' : ''
+    return request<{
+      benchmark_id: number
+      engine: string
+      engine_version: string
+      summary: Record<string, unknown>
+      n_reports: number
+      n_real_scans_scored?: number
+      seeded_from?: string
+    }>(`/api/admin/ocr/import-benchmark${q}`, { method: 'POST' }, true)
+  },
+
+  getOcrDiff(reportId: number, engine?: string) {
+    const q = engine ? `?engine=${encodeURIComponent(engine)}` : ''
+    return request<OcrDiffOut>(`/api/public/reports/${reportId}/ocr/diff${q}`)
+  },
+
+  runOcrBenchmark(engine?: string, force = false) {
+    const params = new URLSearchParams()
+    if (engine) params.set('engine', engine)
+    if (force) params.set('force', 'true')
+    const q = params.toString() ? `?${params.toString()}` : ''
+    return request<{
+      benchmark_id: number
+      engine: string
+      engine_version: string
+      summary: Record<string, unknown>
+      n_reports: number
+      n_real_scans_scored?: number
+    }>(`/api/admin/ocr/benchmark${q}`, { method: 'POST' }, true)
+  },
+
+  getGlossary() {
+    return request<{ terms: GlossaryTerm[] }>('/api/public/glossary')
+  },
+
+  getAbout() {
+    return request<{ title: string; body: string }>('/api/about')
+  },
+
+  // Admin
+  listUsers() {
+    return request<UserOut[]>('/api/admin/users', {}, true)
+  },
+
+  createInvite(body: { email: string; name: string; role: string; invite_token?: string }) {
+    return request<UserOut>('/api/admin/invites', { method: 'POST', body: JSON.stringify(body) }, true)
+  },
+
+  getProgress() {
+    return request<ProgressOut>('/api/admin/progress', {}, true)
+  },
+
+  listEvalSets() {
+    return request<EvaluationSetOut[]>('/api/admin/evaluation-sets', {}, true)
+  },
+
+  createEvalSet(body: { name: string; cancer_types: string[]; report_ids: number[] }) {
+    return request<EvaluationSetOut>(
+      '/api/admin/evaluation-sets',
+      { method: 'POST', body: JSON.stringify(body) },
+      true,
+    )
+  },
+
+  listBatches() {
+    return request<TaskBatchOut[]>('/api/admin/batches', {}, true)
+  },
+
+  createBatch(body: {
+    name: string
+    batch_type: 'annotate' | 'review' | 'auto_check'
+    evaluation_set_id?: number | null
+    assigned_user_ids: number[]
+  }) {
+    return request<TaskBatchOut>('/api/admin/batches', { method: 'POST', body: JSON.stringify(body) }, true)
+  },
+
+  runAutoChecks(body: {
+    generation_ids?: number[] | null
+    batch_id?: number | null
+    evaluation_set_id?: number | null
+  } = {}) {
+    return request<{ run_id: number; count: number; results: unknown }>(
+      '/api/admin/runs/auto-checks',
+      { method: 'POST', body: JSON.stringify(body) },
+      true,
+    )
+  },
+
+  // Annotate — never receives model generations from the API
+  listAnnotateTasks() {
+    return request<AnnotationTaskOut[]>('/api/annotate/tasks', {}, true)
+  },
+
+  getAnnotateTask(taskId: number) {
+    return request<AnnotationTaskOut>(`/api/annotate/tasks/${taskId}`, {}, true)
+  },
+
+  submitGold(taskId: number, gold_labels: Record<string, FactSpan | null>) {
+    return request<AnnotationTaskOut>(
+      `/api/annotate/tasks/${taskId}`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ gold_labels, status: 'completed' }),
+      },
+      true,
+    )
+  },
+
+  // Review
+  listReviewTasks() {
+    return request<ReviewTaskOut[]>('/api/review/tasks', {}, true)
+  },
+
+  getReviewTask(taskId: number) {
+    return request<ReviewTaskOut>(`/api/review/tasks/${taskId}`, {}, true)
+  },
+
+  submitReview(
+    taskId: number,
+    body: { scores: ReviewScores; flagged_sentences: number[]; comments?: string | null },
+  ) {
+    return request<ReviewTaskOut>(
+      `/api/review/tasks/${taskId}`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ ...body, status: 'completed' }),
+      },
+      true,
+    )
+  },
+
+  // Results
+  getResultsSummary() {
+    return request<ResultsSummary>('/api/results/summary', {}, true)
+  },
+
+  async downloadResultsCsv(): Promise<Blob> {
+    const token = getStoredSession()
+    const headers = new Headers()
+    if (token) headers.set('X-Session-Token', token)
+    const res = await fetch(`${apiBase()}/api/results/export.csv`, { headers })
+    if (!res.ok) throw new ApiError(res.status, 'CSV export failed')
+    return res.blob()
+  },
+}

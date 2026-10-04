@@ -1,0 +1,28 @@
+{
+  "engine": "tesseract",
+  "engine_version": "tesseract-5.3.4",
+  "text": "Diagnosis:\n\nPartial (sigmoid) colon resection material with an ulcerated carcinoma of the colon characterized\nhistologically as a moderately differentiated colorectal adenocarcinoma, showing circular growth\nin the intestinal wall over a length of 3.5 cm and extending to within 6 cm of a resection margin.\nInvasive tumor spread within all parietal layers as far as the adjoining mesocolic fatty tissue.\nColon otherwise shows several pseudodiverticula and slight chronically scarring\nperidiverticulitis\n\nOral and aboral resection margins tumor-free.\n\nOne of 26 lymph nodes with a metastasis of the colon carcinoma not extending over the capsule.\nOther lymph nodes with uncharacteristic reactive lesions.\n\nTumor stage thus pT3 pN1 (1/26) LO V0; G2 RO",
+  "pages": [
+    {
+      "page": 1,
+      "text": "Diagnosis:\n\nPartial (sigmoid) colon resection material with an ulcerated carcinoma of the colon characterized\nhistologically as a moderately differentiated colorectal adenocarcinoma, showing circular growth\nin the intestinal wall over a length of 3.5 cm and extending to within 6 cm of a resection margin.\nInvasive tumor spread within all parietal layers as far as the adjoining mesocolic fatty tissue.\nColon otherwise shows several pseudodiverticula and slight chronically scarring\nperidiverticulitis\n\nOral and aboral resection margins tumor-free.\n\nOne of 26 lymph nodes with a metastasis of the colon carcinoma not extending over the capsule.\nOther lymph nodes with uncharacteristic reactive lesions.\n\nTumor stage thus pT3 pN1 (1/26) LO V0; G2 RO",
+      "duration_ms": 410.23068800041074,
+      "width": 1400,
+      "height": 1812,
+      "filename": "page-01.jpg"
+    }
+  ],
+  "duration_ms": 411.0415840004862,
+  "estimated_cost_usd": null,
+  "model": null,
+  "meta": {
+    "cache_key": "2099c17a395f729d11f44747",
+    "page_count": 1,
+    "cer": 0.008,
+    "wer": 0.0459,
+    "ref_chars": 749,
+    "hyp_chars": 744,
+    "ref_words": 109,
+    "hyp_words": 109
+  }
+}

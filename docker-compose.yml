@@ -1,0 +1,16 @@
+# Optional local Postgres for production-like testing.
+# Default MVP uses SQLite — you do not need Docker to run the demo.
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: pathology
+      POSTGRES_PASSWORD: pathology
+      POSTGRES_DB: pathology
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:

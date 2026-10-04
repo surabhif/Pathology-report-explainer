@@ -1,0 +1,35 @@
+# Python / venv
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+
+# Node
+node_modules/
+frontend/dist/
+*.tsbuildinfo
+
+# Env & secrets
+.env
+.env.local
+backend/.env
+*.pem
+
+# Databases & local artifacts
+*.db
+*.sqlite3
+backend/pathology_explainer.db
+/tmp/
+
+# OS / IDE
+.DS_Store
+.idea/
+.vscode/
+
+# Large TCGA downloads (never commit full corpus)
+TCGA_Reports.csv
+TCGA_Reports.csv.zip
+data/full/

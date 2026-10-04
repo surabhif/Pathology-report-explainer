@@ -1,0 +1,36 @@
+{
+  "engine": "tesseract",
+  "engine_version": "tesseract-5.3.4",
+  "text": "he a\n\na",
+  "pages": [
+    {
+      "page": 1,
+      "text": "he a",
+      "duration_ms": 156.9937750000463,
+      "width": 1400,
+      "height": 1812,
+      "filename": "page-01.jpg"
+    },
+    {
+      "page": 2,
+      "text": "a",
+      "duration_ms": 141.82917600010114,
+      "width": 1400,
+      "height": 1812,
+      "filename": "page-02.jpg"
+    }
+  ],
+  "duration_ms": 300.1108620001105,
+  "estimated_cost_usd": null,
+  "model": null,
+  "meta": {
+    "cache_key": "9d099b0d0d4b7ab216a65993",
+    "page_count": 2,
+    "cer": 0.9879,
+    "wer": 1.0,
+    "ref_chars": 496,
+    "hyp_chars": 6,
+    "ref_words": 62,
+    "hyp_words": 3
+  }
+}

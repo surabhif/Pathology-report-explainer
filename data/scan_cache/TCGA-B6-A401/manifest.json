@@ -1,0 +1,36 @@
+{
+  "barcode": "TCGA-B6-A401",
+  "case_submitter_id": "TCGA-B6-A401",
+  "pages": [
+    {
+      "page": 1,
+      "filename": "page-01.jpg",
+      "width": 1400,
+      "height": 1812,
+      "relpath": "TCGA-B6-A401/page-01.jpg",
+      "source_member": "imgs_for_aws/TCGA-B6-A401.D76CF03A-54CD-4769-87AA-466473F41FC7_Page_1.jpg",
+      "source_bytes_raw": 2127969,
+      "source_bytes_cached": 405797
+    },
+    {
+      "page": 2,
+      "filename": "page-02.jpg",
+      "width": 1400,
+      "height": 1812,
+      "relpath": "TCGA-B6-A401/page-02.jpg",
+      "source_member": "imgs_for_aws/TCGA-B6-A401.D76CF03A-54CD-4769-87AA-466473F41FC7_Page_2.jpg",
+      "source_bytes_raw": 1639685,
+      "source_bytes_cached": 283954
+    }
+  ],
+  "source": "tatonetti_textract_input",
+  "label": "Original pathology report page image (Tatonetti lab / Textract input)",
+  "citation": "Page images published by the Tatonetti lab as the AWS Textract inputs for TCGA-Reports (Kefeli et al., Patterns 2024): https://tatonettilab-resources.s3.us-west-1.amazonaws.com/tcga-path-reports/imgs_for_aws.zip (members: imgs_for_aws/TCGA-B6-A401.D76CF03A-54CD-4769-87AA-466473F41FC7_Page_1.jpg, imgs_for_aws/TCGA-B6-A401.D76CF03A-54CD-4769-87AA-466473F41FC7_Page_2.jpg).",
+  "tatonetti_zip_url": "https://tatonettilab-resources.s3.us-west-1.amazonaws.com/tcga-path-reports/imgs_for_aws.zip",
+  "tatonetti_members": [
+    "imgs_for_aws/TCGA-B6-A401.D76CF03A-54CD-4769-87AA-466473F41FC7_Page_1.jpg",
+    "imgs_for_aws/TCGA-B6-A401.D76CF03A-54CD-4769-87AA-466473F41FC7_Page_2.jpg"
+  ],
+  "is_real_scan": true,
+  "scorable_for_ocr_benchmark": true
+}

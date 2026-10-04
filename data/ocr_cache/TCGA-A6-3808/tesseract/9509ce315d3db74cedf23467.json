@@ -1,0 +1,36 @@
+{
+  "engine": "tesseract",
+  "engine_version": "tesseract-5.3.4",
+  "text": "|\nSPECIMEN\nRight colon\nCLINICAL NOTES\nPRE-OP DIAGNOSIS: Carcinoma right colon.\nGROSS DESCRIPTION\nReceived fresh for tissue procurement labeled \"right\ncolon\"\nis a previously unopened 15 cm. segment of proximal right\ncolon with attached 15 cm. distal ileum surfaced by smooth to\nscabrous tan pink serosa with a copious amount of attached\nmesocolon\nand mesentery. No appendix is present. The proximal and distal\nmargins measure 3.2 and 5.2 cm. in circumference respectively. On\nopening there is a well circumscribed, 4.4 x 4.0 cm. rubbery tan\nwhite-red tumor mass within the cecal pouch, 1 cm. distal to the\nileocecal valve. A portion of tumor and a portion of normal are\nsubmitted for tissue procurement as requested. On sectioning, the\ntumor has a maximal thickness of 1.1 cm., grossly extending through\nthe muscularis to within 0.1 cm. of the inked free serosal surface.\nThe ileal mucosa and remaining colonic mucosa is unremarkable\nglistening tan pink with irregular folds and the walls average 0.5\nem. in thickness, Multiple soft pale tan to tan pink tissues in\nkeeping with lymph nodes measuring up to 1.4 cm. in greatest\ndimension are recovered from the attached mesocolon and mesentery.\nRepresentative sections are submitted in 13 blocks as labeled.\nRS13.\nBLOCK SUMMARY: 1 - Proximal and distal margins; 2-4 - tumor full\nthickness to inked free radial serosal surface; 5 - tumor to\nnormal;\n6 - ileum; 7 - ICB; 8 - colon; 9 and 10 - eight whole lymph nodes\nper cassette; 11 - six whole lymph nodes; 12 and 13 - one bisected\nlymph node per cassette. | |\n\nMICROSCOPIC DESCRIPTION\n\nHistologic type: Adenocarcinoma with mucinous differentiation.\n\nHistologic grade: Moderately-differentiated.\n\nPrimary tumor (pT): Tumor invades through the muscularis propria\n\ninto the pericolonic fat (pT3).\n\nProximal margin: Negative.\n\nDistal margin: Negative.\n\nCircumferential (radial) margin: Negative.\n\nVascular invasion: Negative.\n\nRegional lymph nodes (pN): 24 lymph nodes are negative for\n\nmetastatic carcinoma (pNQ).\n\nNon-lymph node pericolonic tumor: Absent\n\nDistant metastasis (pM): Cannot be assessed (pMx).\n\n|\n\nDIAGNOSIS\n\nColon, right and terminal ileum, resection:\nInvasive moderately-differentiated colonic adenocarcinoma with\nmucinous differentiation extending through the wall of the colon\n\ninto the pericolonic fat.\nThe proximal, distal and radial margins of resection are free of\ntumor. Twenty four mesenteric lymph nodes are negative for\nmetastatic carcinoma ; .\n--- End Of Report ---",
+  "pages": [
+    {
+      "page": 1,
+      "text": "|\nSPECIMEN\nRight colon\nCLINICAL NOTES\nPRE-OP DIAGNOSIS: Carcinoma right colon.\nGROSS DESCRIPTION\nReceived fresh for tissue procurement labeled \"right\ncolon\"\nis a previously unopened 15 cm. segment of proximal right\ncolon with attached 15 cm. distal ileum surfaced by smooth to\nscabrous tan pink serosa with a copious amount of attached\nmesocolon\nand mesentery. No appendix is present. The proximal and distal\nmargins measure 3.2 and 5.2 cm. in circumference respectively. On\nopening there is a well circumscribed, 4.4 x 4.0 cm. rubbery tan\nwhite-red tumor mass within the cecal pouch, 1 cm. distal to the\nileocecal valve. A portion of tumor and a portion of normal are\nsubmitted for tissue procurement as requested. On sectioning, the\ntumor has a maximal thickness of 1.1 cm., grossly extending through\nthe muscularis to within 0.1 cm. of the inked free serosal surface.\nThe ileal mucosa and remaining colonic mucosa is unremarkable\nglistening tan pink with irregular folds and the walls average 0.5\nem. in thickness, Multiple soft pale tan to tan pink tissues in\nkeeping with lymph nodes measuring up to 1.4 cm. in greatest\ndimension are recovered from the attached mesocolon and mesentery.\nRepresentative sections are submitted in 13 blocks as labeled.\nRS13.\nBLOCK SUMMARY: 1 - Proximal and distal margins; 2-4 - tumor full\nthickness to inked free radial serosal surface; 5 - tumor to\nnormal;\n6 - ileum; 7 - ICB; 8 - colon; 9 and 10 - eight whole lymph nodes\nper cassette; 11 - six whole lymph nodes; 12 and 13 - one bisected\nlymph node per cassette. | |",
+      "duration_ms": 905.8754280003996,
+      "width": 1400,
+      "height": 1812,
+      "filename": "page-01.jpg"
+    },
+    {
+      "page": 2,
+      "text": "MICROSCOPIC DESCRIPTION\n\nHistologic type: Adenocarcinoma with mucinous differentiation.\n\nHistologic grade: Moderately-differentiated.\n\nPrimary tumor (pT): Tumor invades through the muscularis propria\n\ninto the pericolonic fat (pT3).\n\nProximal margin: Negative.\n\nDistal margin: Negative.\n\nCircumferential (radial) margin: Negative.\n\nVascular invasion: Negative.\n\nRegional lymph nodes (pN): 24 lymph nodes are negative for\n\nmetastatic carcinoma (pNQ).\n\nNon-lymph node pericolonic tumor: Absent\n\nDistant metastasis (pM): Cannot be assessed (pMx).\n\n|\n\nDIAGNOSIS\n\nColon, right and terminal ileum, resection:\nInvasive moderately-differentiated colonic adenocarcinoma with\nmucinous differentiation extending through the wall of the colon\n\ninto the pericolonic fat.\nThe proximal, distal and radial margins of resection are free of\ntumor. Twenty four mesenteric lymph nodes are negative for\nmetastatic carcinoma ; .\n--- End Of Report ---",
+      "duration_ms": 572.535076999884,
+      "width": 1400,
+      "height": 1812,
+      "filename": "page-02.jpg"
+    }
+  ],
+  "duration_ms": 1481.4146729995628,
+  "estimated_cost_usd": null,
+  "model": null,
+  "meta": {
+    "cache_key": "9509ce315d3db74cedf23467",
+    "page_count": 2,
+    "cer": 0.0302,
+    "wer": 0.1516,
+    "ref_chars": 2481,
+    "hyp_chars": 2469,
+    "ref_words": 376,
+    "hyp_words": 382
+  }
+}

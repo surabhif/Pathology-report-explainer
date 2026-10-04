@@ -1,0 +1,28 @@
+{
+  "engine": "tesseract",
+  "engine_version": "tesseract-5.3.4",
+  "text": "Findings and diagnosis relating to the problem\nThe material at hand is an invasive adenocarcinoma of the colon in block A, poorly\ndifferentiated, tending toward partial neuroendocrine differentiation, with penetration of all\nwall layers and clear vascular infiltration (corresponding to p T 3, L1, V1). Otherwise, in\nrelation to the mucosa resection margins:\n- orally - mucosa of ileum type and\n- distally - mucosa of colon type\n-  inrelation to the ligature region \u2014 local fatty connective tissue with proper vascular\nsections\n- relating to the appendix \u2014 chronic recurrent, partially scarring appendicitis with\nclear activation of the lymph follicle, and\n- relating to the lymph nodes \u2014 chronic resorptive lymphadenitis, also with clear\nactivation of the lymph follicle\nTumor classification:\nICDO-DA M 8140/3\nG3\npT3,L1, V1,pN0 consistent with R 0. N (0/12)",
+  "pages": [
+    {
+      "page": 1,
+      "text": "Findings and diagnosis relating to the problem\nThe material at hand is an invasive adenocarcinoma of the colon in block A, poorly\ndifferentiated, tending toward partial neuroendocrine differentiation, with penetration of all\nwall layers and clear vascular infiltration (corresponding to p T 3, L1, V1). Otherwise, in\nrelation to the mucosa resection margins:\n- orally - mucosa of ileum type and\n- distally - mucosa of colon type\n-  inrelation to the ligature region \u2014 local fatty connective tissue with proper vascular\nsections\n- relating to the appendix \u2014 chronic recurrent, partially scarring appendicitis with\nclear activation of the lymph follicle, and\n- relating to the lymph nodes \u2014 chronic resorptive lymphadenitis, also with clear\nactivation of the lymph follicle\nTumor classification:\nICDO-DA M 8140/3\nG3\npT3,L1, V1,pN0 consistent with R 0. N (0/12)",
+      "duration_ms": 471.4357109996854,
+      "width": 1400,
+      "height": 1981,
+      "filename": "page-01.jpg"
+    }
+  ],
+  "duration_ms": 473.3084070003315,
+  "estimated_cost_usd": null,
+  "model": null,
+  "meta": {
+    "cache_key": "93469c51a381edec453773ec",
+    "page_count": 1,
+    "cer": 0.0368,
+    "wer": 0.2353,
+    "ref_chars": 869,
+    "hyp_chars": 857,
+    "ref_words": 136,
+    "hyp_words": 134
+  }
+}

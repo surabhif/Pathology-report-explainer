@@ -1,0 +1,28 @@
+{
+  "engine": "tesseract",
+  "engine_version": "tesseract-5.3.4",
+  "text": "Be \u2014\nDepartment of Cancer Pathology |\ncopy No. 5\nExamination: Histopathological examination\n\nExamination No.: |\nPatient: XXX PESEL: XXX Age: fl] Gender: i\nMaterial: 1. Total organ resection \u2014 sigmoid colon.\nMaterial collected on: Material received on\nExpected time of examination: i\nClinical diagnosis: Tumour of the sigmoid colon tumour.\nExamination performed on [\nMacroscopic description:\nA18 cm length of the large intestine with a piece of mesentery and fat tissue sized 23 x 10.5 x 3 cm. A cauliflower-\nshaped, partially ulcerous tumour sized 7.5 x 5.5 x 3 cm found in the mucosa sized 4.5 x 4 x 1.3 cm. The lesion\nsurrounds 100% of the intestine circumference and narrows its lumen, is located 4.4 cm from one of the incision lines\nand 5.9 cm from the other one. The lesion infiltrates macroscopically the whole thickness of the intestine wall and\nperiintestinal tissues.\nMicroscopic description:\nAdenocarcinoma tubulopapillare (G2). Infiltratio carcinomatosa tunicae muscularis propriae et serosae coli et telae\nadiposae mesenterii pericolicae. Of note is a massive inflammatory invasion, mainly plasmocytic, in the tumour in its\nsurroundings. Intestine ends free of neoplastic lesions.\nMinimum side margin is 0.1 cm. Intestine ends free of neoplastic lesions. Metastases carcinomatosae in lymphonodis\n(No III/XXxXIV). Infiltratio carcinomatosa capsulae lymphonodorum et telae adiposae perinodalis.\nHistopathological diagnosis:\nAdenocarcinoma tubulopapillare coli. Tubulopapillar adenocarcinoma of the colon. Metastases carcinomatosae in\nlymphonodis. Cancer metastases in the lymph nodes. (No III/XXXIV). (p2, Dukes C, Astler-Coller C2, pT4a, pNl).\n\nCompliance validated by| | ss\nCONTACT YOUR DOCTOR WITH THIS REPORT!",
+  "pages": [
+    {
+      "page": 1,
+      "text": "Be \u2014\nDepartment of Cancer Pathology |\ncopy No. 5\nExamination: Histopathological examination\n\nExamination No.: |\nPatient: XXX PESEL: XXX Age: fl] Gender: i\nMaterial: 1. Total organ resection \u2014 sigmoid colon.\nMaterial collected on: Material received on\nExpected time of examination: i\nClinical diagnosis: Tumour of the sigmoid colon tumour.\nExamination performed on [\nMacroscopic description:\nA18 cm length of the large intestine with a piece of mesentery and fat tissue sized 23 x 10.5 x 3 cm. A cauliflower-\nshaped, partially ulcerous tumour sized 7.5 x 5.5 x 3 cm found in the mucosa sized 4.5 x 4 x 1.3 cm. The lesion\nsurrounds 100% of the intestine circumference and narrows its lumen, is located 4.4 cm from one of the incision lines\nand 5.9 cm from the other one. The lesion infiltrates macroscopically the whole thickness of the intestine wall and\nperiintestinal tissues.\nMicroscopic description:\nAdenocarcinoma tubulopapillare (G2). Infiltratio carcinomatosa tunicae muscularis propriae et serosae coli et telae\nadiposae mesenterii pericolicae. Of note is a massive inflammatory invasion, mainly plasmocytic, in the tumour in its\nsurroundings. Intestine ends free of neoplastic lesions.\nMinimum side margin is 0.1 cm. Intestine ends free of neoplastic lesions. Metastases carcinomatosae in lymphonodis\n(No III/XXxXIV). Infiltratio carcinomatosa capsulae lymphonodorum et telae adiposae perinodalis.\nHistopathological diagnosis:\nAdenocarcinoma tubulopapillare coli. Tubulopapillar adenocarcinoma of the colon. Metastases carcinomatosae in\nlymphonodis. Cancer metastases in the lymph nodes. (No III/XXXIV). (p2, Dukes C, Astler-Coller C2, pT4a, pNl).\n\nCompliance validated by| | ss\nCONTACT YOUR DOCTOR WITH THIS REPORT!",
+      "duration_ms": 833.485013000427,
+      "width": 1400,
+      "height": 1981,
+      "filename": "page-01.jpg"
+    }
+  ],
+  "duration_ms": 835.0848830004907,
+  "estimated_cost_usd": null,
+  "model": null,
+  "meta": {
+    "cache_key": "2538d8094311cf2b64c6269c",
+    "page_count": 1,
+    "cer": 0.1637,
+    "wer": 0.2546,
+    "ref_chars": 1503,
+    "hyp_chars": 1722,
+    "ref_words": 216,
+    "hyp_words": 251
+  }
+}

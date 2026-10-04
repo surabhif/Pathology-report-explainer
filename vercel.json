@@ -1,0 +1,8 @@
+# Root Vercel config — prefer deploying frontend/ as the Vercel project.
+# If you point Vercel at the repo root, use this file and set Root Directory to frontend
+# in the Vercel dashboard (recommended). See DEPLOY.md.
+{
+  "buildCommand": "cd frontend && npm install && npm run build",
+  "outputDirectory": "frontend/dist",
+  "installCommand": "cd frontend && npm install"
+}
