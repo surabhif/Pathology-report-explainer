@@ -165,3 +165,62 @@ def annotate_explanation_grounding(
             item["quote"] = None
         sentences_out.append(item)
     return {**explanation, "sentences": sentences_out}
+
+
+def recompute_fact_offsets(
+    facts: dict[str, Any] | None,
+    report_text: str,
+) -> dict[str, Any]:
+    """Recompute ``start_char``/``end_char`` from quotes; never trust LLM offsets.
+
+    For each FactSpan-shaped field with a non-empty quote, locate the quote in
+    ``report_text`` via grounding normalization and write the recovered span.
+    When the quote cannot be found, offsets are cleared to ``None``.
+    Idempotent: re-running on already-corrected facts is a no-op for content.
+    """
+    if not facts:
+        return {}
+    out: dict[str, Any] = {}
+    for key, span in facts.items():
+        if span is None:
+            out[key] = None
+            continue
+        if not isinstance(span, dict):
+            out[key] = span
+            continue
+        item = dict(span)
+        quote = normalize_quote(item.get("quote"))
+        if not quote:
+            item["quote"] = None
+            item["start_char"] = None
+            item["end_char"] = None
+            out[key] = item
+            continue
+        found = find_quote_span(quote, report_text)
+        if found:
+            item["start_char"] = found[0]
+            item["end_char"] = found[1]
+        else:
+            # Keep the quote for display / debugging; drop lying offsets.
+            item["start_char"] = None
+            item["end_char"] = None
+        out[key] = item
+    return out
+
+
+def fact_offsets_need_fix(facts: dict[str, Any] | None, report_text: str) -> bool:
+    """True when any stored offset disagrees with a text-search recompute."""
+    if not facts:
+        return False
+    corrected = recompute_fact_offsets(facts, report_text)
+    for key, span in facts.items():
+        if not isinstance(span, dict):
+            continue
+        other = corrected.get(key)
+        if not isinstance(other, dict):
+            continue
+        if span.get("start_char") != other.get("start_char") or span.get("end_char") != other.get(
+            "end_char"
+        ):
+            return True
+    return False

@@ -116,8 +116,8 @@ export function AnnotatePage() {
 
   return (
     <div className="page-enter stack">
-      <div>
-        <h1 className="section-title">Annotate</h1>
+      <div className="page-intro">
+        <h1>Annotate</h1>
         <p className="muted">
           Highlight spans in the report for each fact field. Model explanations are intentionally
           hidden.

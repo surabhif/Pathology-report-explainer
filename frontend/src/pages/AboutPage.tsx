@@ -109,10 +109,12 @@ export function AboutPage() {
 
   return (
     <article className="page-enter panel markdown-body">
-      <h1 className="section-title">{title}</h1>
-      <p className="muted">
-        Model card: problem, data, method, evaluation, limitations, and disclaimer.
-      </p>
+      <div className="page-intro">
+        <h1>{title}</h1>
+        <p className="muted">
+          Model card: problem, data, method, evaluation, limitations, and disclaimer.
+        </p>
+      </div>
       {error && (
         <p className="muted">
           API about endpoint unavailable ({error}); showing local model card.

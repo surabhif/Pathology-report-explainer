@@ -40,14 +40,19 @@ def get_task(task_id: int, db: DbDep, user: ClinicianUser) -> ReviewTaskOut:
     out = ReviewTaskOut.model_validate(task)
     # Intentionally omit provider/model/prompt versions
     if report:
-        out.report_text = report.report_text
+        from app.routers.public import ensure_generation_fact_offsets, generation_source_text
+
+        gen = ensure_generation_fact_offsets(db, gen, report)
+        source_text = generation_source_text(db, gen, report)
+        out.report_text = source_text
         out.cancer_type = report.cancer_type
         out.tcga_barcode = report.tcga_barcode
+        explanation = annotate_explanation_grounding(
+            gen.explanation_json or {"sentences": []}, source_text
+        )
+    else:
+        explanation = gen.explanation_json or {"sentences": []}
     out.facts = gen.facts_json
-    # Ensure clinician UI sees grounding flags even for older cached generations.
-    explanation = gen.explanation_json or {"sentences": []}
-    if report and report.report_text:
-        explanation = annotate_explanation_grounding(explanation, report.report_text)
     out.explanation = explanation
     return out
 

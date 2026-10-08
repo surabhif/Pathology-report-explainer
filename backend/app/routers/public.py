@@ -28,6 +28,7 @@ from app.schemas import (
 from app.services.explanation import generate_explanation
 from app.services.extraction import extract_facts
 from app.services.glossary import load_glossary
+from app.services.grounding import fact_offsets_need_fix, recompute_fact_offsets
 from app.services.llm.errors import LLMServiceError
 from app.services.llm.factory import get_llm_provider
 from app.services.ocr.metrics import ocr_error_metrics, word_diff_spans
@@ -40,6 +41,50 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/public", tags=["public"])
 
 limiter = Limiter(key_func=client_ip_key)
+
+
+def generation_source_text(db: Session, gen: Generation, report: Report) -> str:
+    """Return the report/OCR text this generation was grounded against."""
+    if gen.text_source == "our_ocr" and gen.ocr_run_id is not None:
+        run = db.query(OcrRun).filter(OcrRun.id == gen.ocr_run_id).first()
+        if run and run.text:
+            return run.text
+        latest = latest_ocr_run(db, report.id)
+        if latest and latest.text:
+            return latest.text
+    return report.report_text
+
+
+def ensure_generation_fact_offsets(
+    db: Session,
+    gen: Generation,
+    report: Report,
+    *,
+    persist: bool = True,
+) -> Generation:
+    """Idempotent fix-up: recompute fact quote offsets against the source text.
+
+    Applied on read so already-saved generations with LLM-written offsets are
+    corrected without requiring a full re-extract. When ``persist`` is True and
+    offsets change, the corrected ``facts_json`` is committed.
+    """
+    source = generation_source_text(db, gen, report)
+    facts = gen.facts_json or {}
+    if not fact_offsets_need_fix(facts, source):
+        return gen
+    corrected = recompute_fact_offsets(facts, source)
+    gen.facts_json = corrected
+    if persist:
+        db.add(gen)
+        db.commit()
+        db.refresh(gen)
+        logger.info(
+            "generation.offsets_fixed generation_id=%s report_id=%s text_source=%s",
+            gen.id,
+            gen.report_id,
+            gen.text_source,
+        )
+    return gen
 
 
 def _active_prompt_tag(db: Session, kind: str) -> str:
@@ -107,7 +152,8 @@ async def run_explain_pipeline(
             cached_q = cached_q.filter(Generation.ocr_run_id == ocr_run_id)
         cached = cached_q.order_by(Generation.id.desc()).first()
         if cached:
-            return cached
+            # Fix lying LLM offsets on already-cached rows (idempotent).
+            return ensure_generation_fact_offsets(db, cached, report)
 
     # PHI: log ids/lengths only — never full report text
     logger.info(
@@ -494,6 +540,7 @@ async def explain_report(
     except HTTPException:
         raise
 
+    gen = ensure_generation_fact_offsets(db, gen, report)
     facts = FactSheet.model_validate(gen.facts_json)
     explanation = ExplanationPayload.model_validate(gen.explanation_json)
     expl_text = " ".join(s.sentence for s in explanation.sentences)

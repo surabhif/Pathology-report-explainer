@@ -120,8 +120,8 @@ export function ReviewPage() {
 
   return (
     <div className="page-enter stack">
-      <div>
-        <h1 className="section-title">Clinician review</h1>
+      <div className="page-intro">
+        <h1>Clinician review</h1>
         <p className="muted">
           Score accuracy, completeness, and harm potential. Flag unsupported or risky sentences.
         </p>

@@ -149,9 +149,9 @@ export function ResultsPage() {
 
   return (
     <div className="page-enter stack">
-      <div className="row" style={{ justifyContent: 'space-between' }}>
+      <div className="page-intro row" style={{ justifyContent: 'space-between', alignItems: 'flex-end' }}>
         <div>
-          <h1 className="section-title">Results</h1>
+          <h1>Results</h1>
           <p className="muted">Per-field and per-cancer metrics with 95% confidence intervals.</p>
         </div>
         {user.role === 'admin' && (
