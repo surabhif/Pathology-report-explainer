@@ -752,6 +752,19 @@ code {
   animation: highlight-pulse 0.9s var(--ease-snap);
 }
 
+.quote-not-found {
+  margin: 0 0 0.75rem;
+  padding: 0.45rem 0.65rem;
+  border: 1px solid var(--accent-border);
+  border-left: 3px solid var(--accent-deep);
+  background: var(--accent-pale);
+  color: var(--accent-ink);
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
 .fact-list {
   list-style: none;
   padding: 0;

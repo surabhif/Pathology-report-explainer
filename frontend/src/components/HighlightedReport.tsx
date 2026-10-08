@@ -1,9 +1,13 @@
 /**
  * Renders report text with an optional highlighted quote span.
- * Prefer character offsets from FactSpan; fall back to normalized quote match
- * (lowercase, collapse whitespace, strip punctuation) so OCR stray periods
- * like "free of. tumor" still highlight when the model quote omits them.
+ *
+ * Locate by text search first (same normalization as the grounding check).
+ * Trust stored character offsets only when the text at those offsets actually
+ * matches the quote. If nothing matches, show "quote not found" instead of a
+ * wrong highlight — LLM-written offsets are often wrong.
  */
+
+import { resolveHighlightSpan } from '../grounding'
 
 interface Props {
   text: string
@@ -12,88 +16,38 @@ interface Props {
   endChar?: number | null
 }
 
-function findNormalizedSpan(text: string, quote: string): { start: number; end: number } | null {
-  // Ellipsis-stitched quotes: highlight the first matching piece.
-  const pieces = quote
-    .split(/\.{3}|…/)
-    .map((p) => p.trim())
-    .filter(Boolean)
-  const target = pieces[0] ?? quote
-
-  const exact = text.indexOf(target)
-  if (exact >= 0) return { start: exact, end: exact + target.length }
-  const lowerIdx = text.toLowerCase().indexOf(target.toLowerCase())
-  if (lowerIdx >= 0) return { start: lowerIdx, end: lowerIdx + target.length }
-
-  const isPunct = (ch: string) => /[!"#$%&'()*+,\-./:;<=>?@[\\\]^_`{|}~]/.test(ch)
-  const normChars: string[] = []
-  const indexMap: number[] = []
-  let prevSpace = true
-  for (let i = 0; i < text.length; i++) {
-    const ch = text[i]
-    const low = ch.toLowerCase()
-    if (isPunct(ch)) {
-      if (!prevSpace && normChars.length) {
-        normChars.push(' ')
-        indexMap.push(i)
-        prevSpace = true
-      }
-      continue
-    }
-    if (/\s/.test(ch)) {
-      if (!prevSpace && normChars.length) {
-        normChars.push(' ')
-        indexMap.push(i)
-        prevSpace = true
-      }
-      continue
-    }
-    normChars.push(low)
-    indexMap.push(i)
-    prevSpace = false
-  }
-  if (normChars.length && normChars[normChars.length - 1] === ' ') {
-    normChars.pop()
-    indexMap.pop()
-  }
-  const normReport = normChars.join('')
-  const normQuote = target
-    .toLowerCase()
-    .replace(/[!"#$%&'()*+,\-./:;<=>?@[\\\]^_`{|}~]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
-  if (!normQuote || !normReport) return null
-  const pos = normReport.indexOf(normQuote)
-  if (pos < 0) return null
-  const start = indexMap[pos]
-  const end = indexMap[pos + normQuote.length - 1] + 1
-  return { start, end }
-}
-
 export function HighlightedReport({ text, highlightQuote, startChar, endChar }: Props) {
-  let start = startChar ?? null
-  let end = endChar ?? null
+  const wantsHighlight =
+    Boolean(highlightQuote && highlightQuote.trim()) ||
+    (startChar != null && endChar != null)
 
-  if ((start == null || end == null) && highlightQuote) {
-    const span = findNormalizedSpan(text, highlightQuote)
-    if (span) {
-      start = span.start
-      end = span.end
-    }
-  }
-
-  if (start == null || end == null || start < 0 || end > text.length || start >= end) {
+  if (!wantsHighlight) {
     return <div className="report-text">{text}</div>
   }
 
-  const before = text.slice(0, start)
-  const mid = text.slice(start, end)
-  const after = text.slice(end)
+  const span = resolveHighlightSpan(text, highlightQuote, startChar, endChar)
+
+  if (!span) {
+    return (
+      <div className="report-text">
+        <p className="quote-not-found" role="status" data-testid="quote-not-found">
+          Quote not found in this text
+        </p>
+        {text}
+      </div>
+    )
+  }
+
+  const before = text.slice(0, span.start)
+  const mid = text.slice(span.start, span.end)
+  const after = text.slice(span.end)
 
   return (
     <div className="report-text">
       {before}
-      <mark className="quote-highlight">{mid}</mark>
+      <mark className="quote-highlight" data-testid="quote-highlight">
+        {mid}
+      </mark>
       {after}
     </div>
   )

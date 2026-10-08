@@ -170,6 +170,46 @@ def progress(db: DbDep, _admin: AdminUser) -> ProgressOut:
     )
 
 
+@router.post("/generations/fix-offsets")
+def fix_generation_offsets(
+    db: DbDep,
+    _admin: AdminUser,
+    body: AutoCheckRequest = AutoCheckRequest(),
+) -> dict:
+    """Recompute fact quote offsets for saved generations (idempotent).
+
+    Optional body mirrors auto-checks scoping (``generation_ids`` /
+    ``evaluation_set_id``). With an empty body, all generations are scanned.
+    Safe to re-run — already-correct rows are left unchanged.
+    """
+    import json
+
+    from app.routers.public import ensure_generation_fact_offsets
+
+    q = db.query(Generation)
+    if body and body.generation_ids:
+        q = q.filter(Generation.id.in_(body.generation_ids))
+    elif body and body.evaluation_set_id:
+        eset = db.query(EvaluationSet).filter(EvaluationSet.id == body.evaluation_set_id).first()
+        if not eset:
+            raise HTTPException(404, "Evaluation set not found")
+        q = q.filter(Generation.report_id.in_(list(eset.report_ids or [])))
+    rows = q.order_by(Generation.id).all()
+    fixed = 0
+    scanned = 0
+    for gen in rows:
+        scanned += 1
+        report = db.query(Report).filter(Report.id == gen.report_id).first()
+        if not report:
+            continue
+        before = json.dumps(gen.facts_json or {}, sort_keys=True, default=str)
+        ensure_generation_fact_offsets(db, gen, report, persist=True)
+        after = json.dumps(gen.facts_json or {}, sort_keys=True, default=str)
+        if before != after:
+            fixed += 1
+    return {"scanned": scanned, "fixed": fixed, "unchanged": scanned - fixed}
+
+
 @router.post("/runs/auto-checks")
 def run_auto_checks(body: AutoCheckRequest, db: DbDep, _admin: AdminUser) -> dict:
     """Run automatic evaluation checks over generations (optionally scoped)."""

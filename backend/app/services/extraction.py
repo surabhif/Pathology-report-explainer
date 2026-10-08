@@ -13,6 +13,7 @@ from pydantic import ValidationError
 
 from app.config import get_settings
 from app.schemas import FactSheet
+from app.services.grounding import recompute_fact_offsets
 from app.services.llm.base import LLMProvider
 from app.services.llm.errors import LLMServiceError
 from app.services.llm.mock import extract_facts_heuristic
@@ -45,6 +46,13 @@ def validate_facts(data: dict[str, Any]) -> FactSheet:
     return FactSheet.model_validate(data)
 
 
+def facts_with_recomputed_offsets(data: dict[str, Any], report_text: str) -> FactSheet:
+    """Validate facts, then replace LLM character offsets with text-search spans."""
+    validated = validate_facts(data)
+    corrected = recompute_fact_offsets(validated.model_dump(), report_text)
+    return FactSheet.model_validate(corrected)
+
+
 async def extract_facts(
     report_text: str,
     provider: LLMProvider,
@@ -56,6 +64,9 @@ async def extract_facts(
     Network/timeouts raise ``LLMServiceError`` (surfaced to the UI).
     Invalid JSON/schema falls back to heuristics and is labeled as mock fallback —
     never silently attributed to the hosted provider.
+
+    Character offsets are always recomputed from the source text; LLM-written
+    ``start_char``/``end_char`` values are never persisted as-is.
     """
     system = load_prompt(prompt_name)
     user = f"Extract structured pathology facts as JSON.\n\nREPORT:\n{report_text}"
@@ -69,12 +80,12 @@ async def extract_facts(
 
     # Pure mock provider: heuristics are the intended path, not a "fallback".
     if provider.provider_id() == "mock":
-        facts = validate_facts(extract_facts_heuristic(report_text))
+        facts = facts_with_recomputed_offsets(extract_facts_heuristic(report_text), report_text)
         return ExtractionResult(facts=facts, prompt_tag=prompt_tag, used_fallback=False)
 
     try:
         raw = await provider.complete_json(system=system, user=user, temperature=0.0)
-        facts = validate_facts(raw)
+        facts = facts_with_recomputed_offsets(raw, report_text)
         return ExtractionResult(facts=facts, prompt_tag=prompt_tag, used_fallback=False)
     except LLMServiceError:
         raise
@@ -86,7 +97,7 @@ async def extract_facts(
             provider.model_id(),
             reason,
         )
-        facts = validate_facts(extract_facts_heuristic(report_text))
+        facts = facts_with_recomputed_offsets(extract_facts_heuristic(report_text), report_text)
         return ExtractionResult(
             facts=facts,
             prompt_tag=prompt_tag,
