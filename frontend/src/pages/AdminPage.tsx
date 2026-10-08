@@ -87,8 +87,8 @@ export function AdminPage() {
 
   return (
     <div className="page-enter stack">
-      <div>
-        <h1 className="section-title">Admin</h1>
+      <div className="page-intro">
+        <h1>Admin</h1>
         <p className="muted">Import status, evaluation sets, batches, invites, and auto-checks.</p>
       </div>
 

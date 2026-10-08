@@ -49,11 +49,13 @@ export function LoginPage() {
 
   return (
     <div className="page-enter" style={{ maxWidth: 480 }}>
-      <h1 className="section-title">Login</h1>
-      <p className="muted">
-        Redeem an invite token. Session token is stored in localStorage and sent as{' '}
-        <code>X-Session-Token</code>.
-      </p>
+      <div className="page-intro">
+        <h1>Login</h1>
+        <p className="muted">
+          Redeem an invite token. Session token is stored in localStorage and sent as{' '}
+          <code>X-Session-Token</code>.
+        </p>
+      </div>
 
       {user && (
         <p className="success-text">
